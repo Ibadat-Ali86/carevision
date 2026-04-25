@@ -1,0 +1,77 @@
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ── Virtual Environments ───────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+backend/.env
+backend/.venv
+
+# ── Jupyter ────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Secrets & Credentials ─────────────────────────────────────────
+*.pem
+*.key
+secrets/
+credentials.json
+service_account.json
+# Allow .env.example files (templates only — no real values)
+!backend/.env.example
+!frontend/.env.example
+
+# ── SQLite development database ────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Alembic ────────────────────────────────────────────────────────
+# Keep migrations directory but ignore cache
+backend/app/db/migrations/__pycache__/
+
+# ── OS & IDE ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Node.js / Frontend ────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Logs & Outputs ────────────────────────────────────────────────
+logs/
+*.log
+mlruns/
+wandb/
+outputs/
+
+# ── Test & Coverage ───────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Docker ────────────────────────────────────────────────────────
+# Keep Dockerfile and docker-compose.yml — exclude runtime volumes
+docker-volumes/
