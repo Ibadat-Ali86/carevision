@@ -3,11 +3,12 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class EncounterLogCreate(BaseModel):
     """Schema for saving a new encounter log entry (POST /log/)."""
+    model_config = ConfigDict(protected_namespaces=())
 
     analysis_type: str
     result_json: str
@@ -37,7 +38,7 @@ class EncounterLogRead(BaseModel):
     processing_time_ms: float | None
     created_at: datetime.datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 class EncounterLogListResponse(BaseModel):

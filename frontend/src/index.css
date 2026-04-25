@@ -1,0 +1,675 @@
+/* ==========================================================================
+   CareVision — Global Styles
+   Spec Reference: Section 2.2 (Color System), 2.3 (Typography), 2.4 (Spacing),
+                   2.5 (Shadows), 2.7 (Animations), 8.3 (CSS Custom Properties)
+   ========================================================================== */
+
+/* Inter font — loaded from Google Fonts with latin subset for optimal performance */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* -----------------------------------------------------------------------
+       PRIMITIVE TOKENS — Medical Palette (Spec Section 2.2 Layer 1)
+       ----------------------------------------------------------------------- */
+
+    /* Medical Teal — Primary System */
+    --color-medical-teal-50:  #E6F7F4;
+    --color-medical-teal-100: #B3E8DE;
+    --color-medical-teal-200: #80D9C8;
+    --color-medical-teal-300: #4DCAB2;
+    --color-medical-teal-400: #26BB9C;
+    --color-medical-teal-500: #0A6E5C;  /* Primary */
+    --color-medical-teal-600: #085B4D;
+    --color-medical-teal-700: #06483E;
+    --color-medical-teal-800: #04352E;
+    --color-medical-teal-900: #02221F;
+
+    /* Clinical Blue — Secondary System */
+    --color-clinical-blue-50:  #E8F1F8;
+    --color-clinical-blue-100: #C1DAEB;
+    --color-clinical-blue-200: #9AC3DE;
+    --color-clinical-blue-300: #73ACD1;
+    --color-clinical-blue-400: #4C95C4;
+    --color-clinical-blue-500: #2C5F8D;  /* Secondary */
+    --color-clinical-blue-600: #244E74;
+    --color-clinical-blue-700: #1C3D5B;
+    --color-clinical-blue-800: #142C42;
+    --color-clinical-blue-900: #0C1B29;
+
+    /* Severity Indicators — Clinical Communication */
+    --color-severity-success:  #10B981;
+    --color-severity-info:     #3B82F6;
+    --color-severity-warning:  #F59E0B;
+    --color-severity-danger:   #EF4444;
+    --color-severity-critical: #991B1B;
+
+    /* Neutral Scale — UI Foundation */
+    --color-neutral-50:  #F8FAFB;
+    --color-neutral-100: #F1F5F9;
+    --color-neutral-200: #E2E8F0;
+    --color-neutral-300: #CBD5E1;
+    --color-neutral-400: #94A3B8;
+    --color-neutral-500: #64748B;
+    --color-neutral-600: #475569;
+    --color-neutral-700: #334155;
+    --color-neutral-800: #1E293B;
+    --color-neutral-900: #1A2332;
+
+    /* -----------------------------------------------------------------------
+       SEMANTIC TOKENS — Context-Mapped (Spec Section 2.2 Layer 2)
+       ----------------------------------------------------------------------- */
+
+    /* Backgrounds */
+    --bg-primary:     #F8FAFB;
+    --bg-elevated:    #FFFFFF;
+    --bg-subtle:      #F1F5F9;
+    --bg-interactive: #E6F7F4;
+
+    /* Text */
+    --text-primary:   #1A2332;
+    --text-secondary: #475569;
+    --text-tertiary:  #64748B;
+    --text-disabled:  #94A3B8;
+    --text-inverted:  #FFFFFF;
+
+    /* Borders */
+    --border-default:  #E2E8F0;
+    --border-subtle:   #F1F5F9;
+    --border-strong:   #CBD5E1;
+    --border-focus:    #0A6E5C;
+
+    /* Interactive Elements */
+    --interactive-primary:        #0A6E5C;
+    --interactive-primary-hover:  #085B4D;
+    --interactive-primary-active: #06483E;
+    --interactive-secondary:      #2C5F8D;
+    --interactive-cta:            #0F9D7E;
+    --interactive-cta-hover:      #0D8A6E;
+
+    /* Status Colors */
+    --status-success:  #10B981;
+    --status-info:     #3B82F6;
+    --status-warning:  #F59E0B;
+    --status-danger:   #EF4444;
+    --status-critical: #991B1B;
+
+    /* -----------------------------------------------------------------------
+       SPACING (Spec Section 2.4 — 4px base unit)
+       ----------------------------------------------------------------------- */
+    --space-1:  0.25rem;
+    --space-2:  0.5rem;
+    --space-3:  0.75rem;
+    --space-4:  1rem;
+    --space-5:  1.25rem;
+    --space-6:  1.5rem;
+    --space-8:  2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+    --space-24: 6rem;
+
+    /* -----------------------------------------------------------------------
+       BORDER RADIUS (Spec Section 2.5)
+       ----------------------------------------------------------------------- */
+    --radius-sm:   0.25rem;
+    --radius-md:   0.5rem;
+    --radius-lg:   0.75rem;
+    --radius-xl:   1rem;
+    --radius-full: 9999px;
+
+    /* -----------------------------------------------------------------------
+       SHADOWS (Spec Section 2.5)
+       ----------------------------------------------------------------------- */
+    --shadow-sm:    0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md:    0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg:    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl:    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-teal:  0 4px 14px 0 rgba(10, 110, 92, 0.25);
+    --shadow-focus: 0 0 0 3px rgba(10, 110, 92, 0.35);
+
+    /* -----------------------------------------------------------------------
+       TRANSITIONS (Spec Section 2.7)
+       ----------------------------------------------------------------------- */
+    --transition-fast:   150ms ease-in-out;
+    --transition-base:   200ms ease-in-out;
+    --transition-slow:   300ms ease-in-out;
+    --transition-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* -------------------------------------------------------------------------
+     BASE RESET
+     ------------------------------------------------------------------------- */
+  html {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    /* Improve font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* All clickable elements */
+  button,
+  [role="button"],
+  a,
+  label[for],
+  input[type="file"] + label,
+  select {
+    cursor: pointer;
+  }
+
+  /* Focus-visible ring — 3px teal ring with offset */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(10, 110, 92, 0.4);
+    border-radius: var(--radius-md);
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.25;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  /* Links */
+  a {
+    color: var(--interactive-primary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  a:hover {
+    color: var(--interactive-primary-hover);
+  }
+
+  /* Remove default button styling */
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* =============================================================================
+   COMPONENT LAYER — Reusable Utility Classes (Spec Section 8.3)
+   ============================================================================= */
+
+@layer components {
+  /* ---------------------------------------------------------------------------
+     BUTTON VARIANTS
+     --------------------------------------------------------------------------- */
+
+  /* Primary — Medical Teal CTA */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1.25rem;
+    height: 44px;
+    min-height: 44px;
+    background-color: #0A6E5C;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: background-color 150ms ease-in-out, box-shadow 150ms ease-in-out, transform 150ms ease-in-out;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn-primary:hover {
+    background-color: #085B4D;
+    box-shadow: 0 4px 12px rgba(10, 110, 92, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    background-color: #06483E;
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  .btn-primary:disabled {
+    background-color: #94A3B8;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* CTA — slightly larger, gradient variant */
+  .btn-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1.5rem;
+    height: 52px;
+    min-height: 52px;
+    background: linear-gradient(135deg, #0A6E5C 0%, #0F9D7E 100%);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: all 200ms ease-in-out;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(10, 110, 92, 0.3);
+  }
+
+  .btn-cta:hover {
+    background: linear-gradient(135deg, #085B4D 0%, #0D8A6E 100%);
+    box-shadow: 0 6px 20px rgba(10, 110, 92, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .btn-cta:active {
+    transform: translateY(0);
+  }
+
+  /* Secondary / ghost button */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1.25rem;
+    height: 44px;
+    min-height: 44px;
+    background-color: #F1F5F9;
+    color: #1A2332;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 150ms ease-in-out;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn-secondary:hover {
+    background-color: #E6F7F4;
+    border-color: #0A6E5C;
+    color: #0A6E5C;
+  }
+
+  .btn-secondary:active {
+    background-color: #B3E8DE;
+  }
+
+  .btn-secondary:disabled {
+    color: #94A3B8;
+    cursor: not-allowed;
+    background-color: #F8FAFB;
+  }
+
+  /* Danger button */
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1.25rem;
+    height: 44px;
+    min-height: 44px;
+    background-color: #EF4444;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 150ms ease-in-out;
+    cursor: pointer;
+  }
+
+  .btn-danger:hover {
+    background-color: #DC2626;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .btn-danger:active {
+    transform: translateY(0);
+  }
+
+  /* Icon-only button (large tap target) */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    width: 44px;
+    height: 44px;
+    color: #475569;
+    transition: all 150ms ease-in-out;
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
+
+  .btn-icon:hover {
+    background-color: #F1F5F9;
+    color: #1A2332;
+  }
+
+  /* ---------------------------------------------------------------------------
+     CARD BASE
+     --------------------------------------------------------------------------- */
+  .card {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+    padding: 1.5rem;
+  }
+
+  /* Feature card — larger, interactive */
+  .feature-card {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06);
+    padding: 1.5rem;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 200ms ease-in-out, transform 200ms ease-in-out, border-color 200ms ease-in-out;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card:hover {
+    box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.12), 0 4px 10px -5px rgb(0 0 0 / 0.08);
+    transform: translateY(-3px);
+    border-color: #CBD5E1;
+  }
+
+  /* ---------------------------------------------------------------------------
+     SCREEN READER ONLY (Spec Section 6.2)
+     --------------------------------------------------------------------------- */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0.75rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background-color: #FFFFFF;
+    color: #0A6E5C;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ---------------------------------------------------------------------------
+     SKELETON LOADER (Loading states — shimmer animation)
+     --------------------------------------------------------------------------- */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      #E2E8F0 0%,
+      #F1F5F9 50%,
+      #E2E8F0 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s linear infinite;
+    border-radius: 0.375rem;
+  }
+
+  /* ---------------------------------------------------------------------------
+     FORM INPUT BASE
+     --------------------------------------------------------------------------- */
+  .input-base {
+    display: block;
+    width: 100%;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    padding: 0.625rem 0.75rem;
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    color: #1A2332;
+    min-height: 44px;
+    transition: border-color 150ms ease-in-out, box-shadow 150ms ease-in-out;
+    font-family: inherit;
+  }
+
+  .input-base:focus {
+    outline: none;
+    border-color: #0A6E5C;
+    box-shadow: 0 0 0 3px rgba(10, 110, 92, 0.15);
+  }
+
+  .input-base::placeholder {
+    color: #94A3B8;
+  }
+
+  /* ---------------------------------------------------------------------------
+     STATUS BADGE
+     --------------------------------------------------------------------------- */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------------------------------------------------------------------------
+     SECTION HEADER ACCENT
+     --------------------------------------------------------------------------- */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 0.75rem;
+  }
+
+  .section-label::before {
+    content: '';
+    display: block;
+    width: 3px;
+    height: 14px;
+    background-color: #0A6E5C;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }
+}
+
+/* =============================================================================
+   UTILITY LAYER — Custom Utilities (Spec Section 8.3)
+   ============================================================================= */
+
+@layer utilities {
+  /* ---------------------------------------------------------------------------
+     REDUCED MOTION SUPPORT (Spec Section 2.7 — mandatory)
+     --------------------------------------------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ---------------------------------------------------------------------------
+     TEXT TRUNCATION
+     --------------------------------------------------------------------------- */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ---------------------------------------------------------------------------
+     SEVERITY LEFT BORDER VARIANTS (WoundAssess — Spec Section 4.3)
+     --------------------------------------------------------------------------- */
+  .severity-border-1,
+  .severity-border-2 {
+    border-left: 4px solid #10B981;
+  }
+
+  .severity-border-3 {
+    border-left: 4px solid #F59E0B;
+  }
+
+  .severity-border-4 {
+    border-left: 4px solid #EF4444;
+  }
+
+  .severity-border-5 {
+    border-left: 8px solid #991B1B;
+    animation: emergencyPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes emergencyPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(153, 27, 27, 0.4); }
+    70%       { box-shadow: 0 0 0 10px rgba(153, 27, 27, 0); }
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* ---------------------------------------------------------------------------
+     HOVER LIFT EFFECTS
+     --------------------------------------------------------------------------- */
+  .hover-lift {
+    transition: box-shadow 200ms ease-in-out, transform 200ms ease-in-out;
+  }
+
+  .hover-lift:hover {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    transform: translateY(-2px);
+  }
+
+  /* ---------------------------------------------------------------------------
+     GRADIENT TEXT (hero headline accent)
+     --------------------------------------------------------------------------- */
+  .gradient-text-teal {
+    background: linear-gradient(135deg, #0A6E5C 0%, #0F9D7E 60%, #26BB9C 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ---------------------------------------------------------------------------
+     GLASS EFFECT
+     --------------------------------------------------------------------------- */
+  .glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* ---------------------------------------------------------------------------
+     TEAL GRADIENT BACKGROUND (hero, onboarding)
+     --------------------------------------------------------------------------- */
+  .bg-teal-gradient {
+    background: linear-gradient(135deg, #E6F7F4 0%, #F8FAFB 50%, #E8F1F8 100%);
+  }
+}
+
+/* =============================================================================
+   GLOBAL KEYFRAMES (referenced by inline animation: style props)
+   ============================================================================= */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUpFadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes statusDot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+@keyframes progressBar {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+@keyframes emergencyPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(153, 27, 27, 0.4); }
+  70%       { box-shadow: 0 0 0 10px rgba(153, 27, 27, 0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+

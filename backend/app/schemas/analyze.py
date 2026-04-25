@@ -18,11 +18,15 @@ MAX_IMAGE_B64_LENGTH: int = 1_500_000
 class AnalyzeRequest(BaseModel):
     """Incoming request for all four analysis types.
 
+    `type` is optional — sub-path routes (/analyze/teststrip etc.) override it
+    from the URL, so the body does not need to include it when using those routes.
+    The generic /analyze/ route requires `type` in the body.
+
     Validators enforce the image size limit and language code whitelist
     at the Pydantic layer — before any processing begins.
     """
 
-    type: str
+    type: str = ""  # Optional — overridden by sub-path routes
     image_b64: str
     language: str = "en"
     consent_given: bool = False
@@ -50,6 +54,10 @@ class AnalyzeRequest(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_analysis_type(cls, value: str) -> str:
+        # Allow empty string — sub-path routes will set the type from URL.
+        # Only validate non-empty values so generic /analyze/ still enforces the type.
+        if value == "":
+            return value
         valid_types = {
             AnalysisType.TESTSTRIP,
             AnalysisType.MEDSCAN,
@@ -119,7 +127,11 @@ class DocReaderResult(BaseModel):
 # ── Unified response wrapper ───────────────────────────────────────────────────
 
 
+from pydantic import ConfigDict
+
 class AnalyzeResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     type: str
     result: TestStripResult | MedScanResult | WoundAssessResult | DocReaderResult
     processing_time_ms: float
