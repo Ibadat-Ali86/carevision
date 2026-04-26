@@ -4,9 +4,9 @@
  */
 
 // Base URL from Vite environment variable — set in .env as VITE_API_BASE_URL
-// Falls back to localhost:8000 for local development
+// Falls back to 127.0.0.1:8000 for local development to avoid IPv6 resolution issues
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8000';
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
 
 // WHY 30s: Gemma AI analysis can take 15–25s on free-tier infrastructure.
 // 35s was spec'd in the original API client — 30s provides safety margin.

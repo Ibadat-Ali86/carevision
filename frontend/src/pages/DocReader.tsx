@@ -15,8 +15,8 @@ export default function DocReader() {
   ): Promise<DocReaderResult> => {
     const req: AnalysisRequest = { image_b64: imageBase64, type: 'docreader', language, consent_given: consent };
     const res = await analyzeDocReader(req);
-    if (!res.success || !res.result) {
-      throw new Error(res.error || 'Analysis returned no result');
+    if (!res.result) {
+      throw new Error('Analysis returned no result');
     }
     return res.result;
   };

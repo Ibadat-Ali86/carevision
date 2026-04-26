@@ -22,7 +22,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  sources?: string[];
+  source_note?: string;
   disclaimer?: string;
   isLoading?: boolean;
 }
@@ -66,27 +66,30 @@ export default function ProtocolAssistant() {
     setIsLoading(true);
 
     try {
-      const res = await queryProtocol({ question, language });
+      const res = await queryProtocol({ query: question, language });
       setMessages(prev =>
         prev.map(m =>
           m.isLoading
             ? {
                 ...m,
                 content: res.answer,
-                sources: res.sources,
+                source_note: res.source_note,
                 disclaimer: res.disclaimer,
                 isLoading: false,
               }
             : m
         )
       );
-    } catch {
+    } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? `Error: ${err.message}` 
+        : 'Unable to reach the protocol assistant. Please check your connection and try again.';
       setMessages(prev =>
         prev.map(m =>
           m.isLoading
             ? {
                 ...m,
-                content: 'Unable to reach the protocol assistant. Please check your connection and try again.',
+                content: errorMessage,
                 isLoading: false,
               }
             : m
@@ -216,16 +219,14 @@ export default function ProtocolAssistant() {
                     ) : (
                       <>
                         <p>{msg.content}</p>
-                        {msg.sources && msg.sources.length > 0 && (
+                        {msg.source_note && (
                           <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                             <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Sources
+                              Source Note
                             </p>
-                            {msg.sources.map((src, i) => (
-                              <p key={i} className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                                {src}
-                              </p>
-                            ))}
+                            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              {msg.source_note}
+                            </p>
                           </div>
                         )}
                         {msg.disclaimer && (

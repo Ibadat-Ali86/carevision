@@ -66,8 +66,8 @@ export default function WoundAssess() {
       consent_given: consent,
     };
     const res = await analyzeWoundAssess(req);
-    if (!res.success || !res.result) {
-      throw new Error(res.error || 'Analysis returned no result');
+    if (!res.result) {
+      throw new Error('Analysis returned no result');
     }
     return res.result;
   };

@@ -19,8 +19,8 @@ export default function TestStrip() {
   ): Promise<TestStripResult> => {
     const req: AnalysisRequest = { image_b64: imageBase64, type: 'teststrip', language, consent_given: consent };
     const res = await analyzeTestStrip(req);
-    if (!res.success || !res.result) {
-      throw new Error(res.error || 'Analysis returned no result');
+    if (!res.result) {
+      throw new Error('Analysis returned no result');
     }
     return res.result;
   };

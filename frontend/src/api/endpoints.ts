@@ -27,9 +27,13 @@ import type {
 export async function analyzeTestStrip(
   req: AnalysisRequest
 ): Promise<AnalysisResponse<TestStripResult>> {
+  const payload = {
+    ...req,
+    image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
+  };
   const { data } = await apiClient.post<AnalysisResponse<TestStripResult>>(
-    '/analyze/teststrip',
-    req
+    '/analyze/',
+    payload
   );
   return data;
 }
@@ -37,9 +41,13 @@ export async function analyzeTestStrip(
 export async function analyzeMedScan(
   req: AnalysisRequest
 ): Promise<AnalysisResponse<MedScanResult>> {
+  const payload = {
+    ...req,
+    image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
+  };
   const { data } = await apiClient.post<AnalysisResponse<MedScanResult>>(
-    '/analyze/medscan',
-    req
+    '/analyze/',
+    payload
   );
   return data;
 }
@@ -47,9 +55,13 @@ export async function analyzeMedScan(
 export async function analyzeWoundAssess(
   req: AnalysisRequest
 ): Promise<AnalysisResponse<WoundAssessResult>> {
+  const payload = {
+    ...req,
+    image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
+  };
   const { data } = await apiClient.post<AnalysisResponse<WoundAssessResult>>(
-    '/analyze/woundassess',
-    req
+    '/analyze/',
+    payload
   );
   return data;
 }
@@ -57,9 +69,13 @@ export async function analyzeWoundAssess(
 export async function analyzeDocReader(
   req: AnalysisRequest
 ): Promise<AnalysisResponse<DocReaderResult>> {
+  const payload = {
+    ...req,
+    image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
+  };
   const { data } = await apiClient.post<AnalysisResponse<DocReaderResult>>(
-    '/analyze/docreader',
-    req
+    '/analyze/',
+    payload
   );
   return data;
 }
@@ -71,7 +87,7 @@ export async function analyzeDocReader(
 export async function queryProtocol(
   req: ProtocolRequest
 ): Promise<ProtocolResponse> {
-  const { data } = await apiClient.post<ProtocolResponse>('/protocols/query', req);
+  const { data } = await apiClient.post<ProtocolResponse>('/protocols/', req);
   return data;
 }
 

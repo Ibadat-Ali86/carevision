@@ -119,12 +119,12 @@ export interface AnalysisRequest {
 }
 
 export interface AnalysisResponse<T extends BaseAnalysisResult> {
-  success: boolean;
+  type: string;
   result: T;
-  /** UUID of the created EncounterLog record (present when success=true) */
-  encounter_id?: string;
-  /** Error message — present when success=false */
-  error?: string;
+  processing_time_ms: number;
+  model_used: string;
+  image_stored: boolean;
+  image_url: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,14 +132,14 @@ export interface AnalysisResponse<T extends BaseAnalysisResult> {
 // ---------------------------------------------------------------------------
 
 export interface ProtocolRequest {
-  question: string;
+  query: string;
   language: string;
 }
 
 export interface ProtocolResponse {
   answer: string;
   /** Protocol sources referenced in the answer */
-  sources: string[];
+  source_note: string;
   disclaimer: string;
 }
 
