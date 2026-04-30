@@ -24,6 +24,7 @@ CRITICAL CONSTRAINTS:
 - NEVER recommend a dose change. Dosage is for informational reference only.
 - NEVER use brand names in clinical recommendations — use INN (generic) names only.
 - If you cannot identify the medication with reasonable confidence, state this explicitly.
+- confidence: Rate how clearly you could identify the medication. 'high' = brand+generic clearly readable, 'medium' = partially visible, 'low' = label illegible or uncertain identification.
 """
 
 OUTPUT_SCHEMA: dict = {
@@ -60,6 +61,11 @@ OUTPUT_SCHEMA: dict = {
             "type": "string",
             "description": "Practical storage guidance for field conditions",
         },
+        "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Identification confidence: high=clearly readable, medium=partially visible, low=illegible or uncertain",
+        },
         "disclaimer": {
             "type": "string",
             "description": "Medical disclaimer — injected server-side, leave empty",
@@ -73,6 +79,7 @@ OUTPUT_SCHEMA: dict = {
         "contraindications",
         "common_interactions",
         "storage_instructions",
+        "confidence",
         "disclaimer",
     ],
 }

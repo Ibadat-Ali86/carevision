@@ -81,7 +81,7 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
 
     # Step 3: Gemma API call
     try:
-        raw_result = gemma_client.analyze(
+        raw_result = await gemma_client.analyze(
             system_prompt=system_prompt,
             output_schema=output_schema,
             image_b64=compressed_b64,

@@ -25,6 +25,7 @@ ASSESSMENT RULES:
 3. refer_immediately must be true for severity 4 and 5.
 4. refer_reason is required when refer_immediately is true — provide a one-sentence clinical handoff note.
 5. recommended_action must be the single most important immediate action.
+6. confidence: how clearly the wound was visible. 'high' = well-lit, unobstructed, sharp image. 'medium' = partially visible. 'low' = poor quality; severity defaulted to 3 per uncertainty rule.
 """
 
 OUTPUT_SCHEMA: dict = {
@@ -59,6 +60,11 @@ OUTPUT_SCHEMA: dict = {
             "items": {"type": "string"},
             "description": "3–5 ordered wound care steps immediately actionable by a CHW",
         },
+        "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Image quality/visibility: high=clear, medium=partially visible, low=poor (severity defaulted to 3)",
+        },
         "disclaimer": {
             "type": "string",
             "description": "Medical disclaimer — injected server-side, leave empty",
@@ -71,6 +77,7 @@ OUTPUT_SCHEMA: dict = {
         "recommended_action",
         "refer_immediately",
         "wound_care_steps",
+        "confidence",
         "disclaimer",
     ],
 }

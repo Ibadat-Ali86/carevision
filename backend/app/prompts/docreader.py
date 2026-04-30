@@ -19,9 +19,9 @@ EXTRACTION RULES:
 2. For any field that is unreadable or obscured, use the value: "[illegible]"
 3. If field names are in a non-English language, translate them to English as keys.
 4. Translate non-English field VALUES to English in the extracted output.
-5. Identify critical_values — any result outside normal reference range (e.g. "HbA1c: 9.2% (high — normal <7%)").
+5. next_steps: List 2–5 actionable steps the CHW should take based on document content. If critical values are present (e.g. HbA1c > 7%), include them as the first step.
 6. summary must be 2–3 sentences in plain language suitable for a CHW with limited clinical training.
-7. action_required is true when critical_values are present OR the document explicitly requests follow-up.
+7. confidence reflects how clearly the document was readable: 'high' (clear, fully readable), 'medium' (partially legible), 'low' (poor quality or mostly illegible).
 """
 
 OUTPUT_SCHEMA: dict = {
@@ -43,18 +43,19 @@ OUTPUT_SCHEMA: dict = {
             "type": "object",
             "description": "All legible clinical fields as key-value pairs. Use '[illegible]' for unreadable values.",
         },
-        "critical_values": {
+        "next_steps": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Values outside normal range with reference (e.g. 'HbA1c: 9.2% (high — normal <7%)')",
+            "description": "2–5 actionable steps for the CHW. Include any critical out-of-range values as the first item.",
         },
         "summary": {
             "type": "string",
             "description": "2–3 sentence plain-language summary for a CHW with limited training",
         },
-        "action_required": {
-            "type": "boolean",
-            "description": "True when critical values present or document requests follow-up",
+        "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Document readability: high=fully readable, medium=partially legible, low=mostly illegible",
         },
         "disclaimer": {
             "type": "string",
@@ -64,9 +65,9 @@ OUTPUT_SCHEMA: dict = {
     "required": [
         "document_type",
         "extracted_fields",
-        "critical_values",
+        "next_steps",
         "summary",
-        "action_required",
+        "confidence",
         "disclaimer",
     ],
 }

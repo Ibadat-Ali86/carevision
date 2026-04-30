@@ -8,9 +8,10 @@
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
 
-// WHY 30s: Gemma AI analysis can take 15–25s on free-tier infrastructure.
-// 35s was spec'd in the original API client — 30s provides safety margin.
-export const API_TIMEOUT_MS = 30_000;
+// WHY 60s: Gemma AI analysis has 15–25s latency on first request (cold start).
+// 30s was too aggressive — caused spurious TIMEOUT_ERRORs before the model responded.
+// 60s gives a full safety margin while still catching genuine network failures.
+export const API_TIMEOUT_MS = 60_000;
 
 // WHY 2 retries: Balances reliability with latency.
 // After 3 total attempts with exponential backoff, failures are queued offline.

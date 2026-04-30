@@ -9,8 +9,14 @@ from app.db.models import Base
 
 # WHY async engine: all FastAPI route handlers are async def. Mixing sync SQLAlchemy
 # in async context causes blocking I/O that defeats uvloop performance gains.
+#
+# WHY connect_args ssl=True: asyncpg does NOT accept `sslmode` as a URL query
+# parameter (that is libpq/psycopg2 syntax). Neon requires TLS; we satisfy this
+# by passing ssl=True through connect_args instead of the URL. The DATABASE_URL
+# must NOT contain ?sslmode=require — asyncpg will reject it as an unknown kwarg.
 engine = create_async_engine(
     settings.database_url,
+    connect_args={"ssl": True},
     # pool_size and max_overflow only apply to PostgreSQL (asyncpg).
     # SQLite (aiosqlite) uses a single connection — pool args are ignored.
     echo=settings.environment == "development",

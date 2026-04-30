@@ -31,7 +31,7 @@ async def query_protocol(request: ProtocolRequest) -> ProtocolResponse:
     Returns a structured response with answer, source_note, and mandatory disclaimer.
     """
     try:
-        raw_answer = gemma_client.query_protocol(
+        raw_answer = await gemma_client.query_protocol(
             query=request.query,
             language=request.language,
         )

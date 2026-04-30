@@ -93,6 +93,7 @@ class MedScanResult(BaseModel):
     contraindications: list[str]
     common_interactions: list[str]
     storage_instructions: str
+    confidence: str = "medium"  # high | medium | low — displayed by ConfidenceIndicator
     disclaimer: str = ""
 
 
@@ -104,6 +105,7 @@ class WoundAssessResult(BaseModel):
     refer_immediately: bool
     refer_reason: str | None = None
     wound_care_steps: list[str]
+    confidence: str = "medium"  # high | medium | low — displayed by ConfidenceIndicator
     disclaimer: str = ""
 
     @field_validator("severity")
@@ -118,9 +120,11 @@ class WoundAssessResult(BaseModel):
 class DocReaderResult(BaseModel):
     document_type: str  # lab_report | referral_letter | prescription | patient_record | vaccination_card | other
     extracted_fields: dict[str, Any]
-    critical_values: list[str]
+    # WHY next_steps not critical_values: Frontend ResultCard.tsx renders next_steps.
+    # critical_values renamed here; prompts updated to match.
+    next_steps: list[str]
     summary: str
-    action_required: bool
+    confidence: str = "medium"  # high | medium | low — displayed by ConfidenceIndicator
     disclaimer: str = ""
 
 
