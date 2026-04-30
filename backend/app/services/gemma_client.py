@@ -38,8 +38,12 @@ class GemmaClient:
         full_prompt = (
             f"{system_prompt}\n\n"
             f"IMPORTANT: Respond in language code: {language}\n\n"
-            f"You MUST respond with ONLY raw, valid JSON matching this exact schema. Do not include markdown code blocks. Schema:\n"
-            f"{json.dumps(output_schema, indent=2)}"
+            f"OUTPUT INSTRUCTIONS:\n"
+            f"- Output ONLY a valid JSON object containing the requested clinical data.\n"
+            f"- DO NOT output a JSON Schema definition (do not use 'properties' or 'type: object' as root keys).\n"
+            f"- Your JSON must strictly conform to the fields required by this JSON Schema:\n\n"
+            f"{json.dumps(output_schema, indent=2)}\n\n"
+            f"Return ONLY the raw JSON data object. No markdown formatting, no explanations."
         )
 
         messages = [
@@ -95,14 +99,45 @@ class GemmaClient:
             f"Last error: {last_error}"
         )
 
-    async def query_protocol(self, query: str, language: str) -> str:
-        """Text-only query for the Protocol Assistant."""
+    async def query_protocol(
+        self,
+        query: str,
+        language: str,
+        image_b64: str | None = None,
+        context: str | None = None,
+    ) -> str:
+        """Context-aware multimodal query for the Protocol Assistant."""
         from app.prompts.protocol import SYSTEM_PROMPT
 
-        # Put system prompt in user message to avoid system role rejection on some NIM models
-        messages = [
-            {"role": "user", "content": f"{SYSTEM_PROMPT}\n\nLanguage: {language}\n\nQuestion: {query}"}
-        ]
+        context_block = f"CONTEXT FROM PREVIOUS ANALYSIS:\n{context}\n\n" if context else ""
+        
+        text_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            f"If the user explicitly asks you to answer in a different language, you MUST honor their request. "
+            f"Otherwise, respond in the default language code: {language}\n\n"
+            f"{context_block}"
+            f"Question: {query}"
+        )
+
+        if image_b64:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": text_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_b64}"
+                            }
+                        }
+                    ],
+                }
+            ]
+        else:
+            messages = [
+                {"role": "user", "content": text_prompt}
+            ]
 
         response = await self._client.chat.completions.create(
             model=self._model_name,

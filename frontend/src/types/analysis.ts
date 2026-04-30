@@ -134,6 +134,8 @@ export interface AnalysisResponse<T extends BaseAnalysisResult> {
 export interface ProtocolRequest {
   query: string;
   language: string;
+  image_b64?: string;
+  context?: string;
 }
 
 export interface ProtocolResponse {

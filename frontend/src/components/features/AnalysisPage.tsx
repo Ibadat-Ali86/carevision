@@ -11,6 +11,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { AlertCircle, RefreshCw, CheckCircle, Camera, Eye, Zap, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -58,6 +59,7 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
   onGenerateReferral,
   preCapture,
 }: AnalysisPageProps<T>) {
+  const navigate = useNavigate();
   const { language, defaultConsent } = useSettingsStore();
   const [pageState, setPageState] = useState<AnalysisPageState>('idle');
   const [consent, setConsent] = useState(defaultConsent);
@@ -123,6 +125,22 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
     a.click();
     URL.revokeObjectURL(url);
   }, [result, analysisType]);
+
+  const handleAskFollowUp = useCallback(() => {
+    if (!result || !capturedImage) return;
+    
+    // Strip the base64 prefix if present, as backend expects raw base64 string
+    const cleanBase64 = capturedImage.includes(',') 
+      ? capturedImage.split(',')[1] 
+      : capturedImage;
+      
+    navigate('/protocol', {
+      state: {
+        image_b64: cleanBase64,
+        context: JSON.stringify(result, null, 2),
+      }
+    });
+  }, [result, capturedImage, navigate]);
 
   const currentStepIndex = getStepIndex(pageState);
   const isError = pageState === 'error';
@@ -261,6 +279,7 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
               result={result}
               onExport={handleExport}
               onNewAnalysis={handleNewAnalysis}
+              onAskFollowUp={handleAskFollowUp}
               onGenerateReferral={
                 onGenerateReferral ? () => onGenerateReferral(result) : undefined
               }

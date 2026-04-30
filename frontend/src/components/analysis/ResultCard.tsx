@@ -41,6 +41,8 @@ interface ResultCardProps {
   result: AnyResult;
   onExport?: () => void;
   onNewAnalysis?: () => void;
+  /** Trigger follow-up Protocol Assistant question with context */
+  onAskFollowUp?: () => void;
   /** Only for WoundAssess: trigger referral card generation */
   onGenerateReferral?: () => void;
 }
@@ -313,7 +315,11 @@ function DocReaderResultContent({ result }: { result: DocReaderResult }) {
                 >
                   {key}
                 </span>
-                <span style={{ color: 'var(--text-primary)' }}>{value}</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {typeof value === 'object' && value !== null 
+                    ? JSON.stringify(value, null, 2) 
+                    : String(value)}
+                </span>
               </div>
             ))}
           </div>
@@ -350,6 +356,7 @@ export function ResultCard({
   result,
   onExport,
   onNewAnalysis,
+  onAskFollowUp,
   onGenerateReferral,
 }: ResultCardProps) {
   const AnalysisIcon = ANALYSIS_ICON[analysisType];
@@ -441,7 +448,13 @@ export function ResultCard({
       </div>
 
       {/* Export + New Analysis Actions */}
-      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {onAskFollowUp && (
+          <button onClick={onAskFollowUp} type="button" className="btn-secondary" style={{ height: '38px', fontSize: '0.8125rem', backgroundColor: 'var(--bg-subtle)' }}>
+            <FileText size={15} aria-hidden />
+            Ask Follow-up
+          </button>
+        )}
         {onExport && (
           <button onClick={onExport} type="button" className="btn-secondary" style={{ height: '38px', fontSize: '0.8125rem' }}>
             <Share2 size={15} aria-hidden />

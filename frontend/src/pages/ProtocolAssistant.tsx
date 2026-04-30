@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Stethoscope } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Send, Stethoscope, Image as ImageIcon } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -39,8 +40,14 @@ export default function ProtocolAssistant() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { language } = useSettingsStore();
+  const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Extract optional context passed from AnalysisPage
+  const state = location.state as { image_b64?: string; context?: string } | null;
+  const image_b64 = state?.image_b64;
+  const context = state?.context;
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,7 +73,13 @@ export default function ProtocolAssistant() {
     setIsLoading(true);
 
     try {
-      const res = await queryProtocol({ query: question, language });
+      const res = await queryProtocol({ 
+        query: question, 
+        language,
+        // Always pass context if available for this session
+        image_b64,
+        context
+      });
       setMessages(prev =>
         prev.map(m =>
           m.isLoading
@@ -159,6 +172,23 @@ export default function ProtocolAssistant() {
                 >
                   Ask any clinical protocol or WHO guideline question.
                 </p>
+
+                {/* Context Indicator */}
+                {context && (
+                  <div 
+                    className="flex items-center justify-center gap-2 mb-8 mx-auto rounded-full text-xs font-medium"
+                    style={{
+                      maxWidth: 'fit-content',
+                      padding: '6px 12px',
+                      backgroundColor: 'var(--bg-subtle)',
+                      border: '1px solid var(--border-default)',
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    <ImageIcon size={14} style={{ color: 'var(--interactive-primary)' }} />
+                    <span>Analysis context attached</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {SUGGESTED_PROMPTS.map(prompt => (

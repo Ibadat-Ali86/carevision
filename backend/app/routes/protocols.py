@@ -12,6 +12,8 @@ router = APIRouter(prefix="/protocols", tags=["protocols"])
 class ProtocolRequest(BaseModel):
     query: str
     language: str = "en"
+    image_b64: str | None = None
+    context: str | None = None
 
 
 class ProtocolResponse(BaseModel):
@@ -34,6 +36,8 @@ async def query_protocol(request: ProtocolRequest) -> ProtocolResponse:
         raw_answer = await gemma_client.query_protocol(
             query=request.query,
             language=request.language,
+            image_b64=request.image_b64,
+            context=request.context,
         )
     except Exception as exc:
         raise HTTPException(

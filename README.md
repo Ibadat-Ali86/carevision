@@ -30,8 +30,8 @@ Community health workers (CHWs) operating in "last-mile" clinics and remote geog
 - 🎯 **TestStrip (RDT Interpretation)** — Automates the reading of rapid diagnostic tests (malaria, HIV, TB, pregnancy) with high-confidence validation, minimizing human error in faint line detection.
 - 💊 **MedScan** — Extracts drug names and dosages from blurry or damaged packaging to prevent critical administration and dispensing errors.
 - 🩹 **WoundAssess** — Performs multimodal assessment of physical injuries, automatically assigning a 5-level severity score to trigger escalation and referral workflows.
-- 📄 **DocReader** — Extracts structured clinical data from unstructured documents, including handwritten lab reports, prescriptions, and vaccination records.
-- 🤖 **Protocol Assistant** — An interactive, context-aware Q&A agent grounded strictly in WHO clinical guidelines (Operating at a strict temperature of `0.2` to ensure factual consistency).
+- 📄 **DocReader** — Extracts structured clinical data from unstructured documents, including handwritten lab reports, prescriptions, and vaccination records, rendering complex nested results cleanly.
+- 🤖 **Protocol Assistant** — An interactive, context-aware Q&A agent grounded strictly in WHO clinical guidelines. Features **context-passing** from image analysis (allows users to ask follow-up questions directly about their MedScan or DocReader results) and dynamic language adaptation.
 - 📶 **Robust Offline-First Architecture** — Powered by `Dexie.js` (IndexedDB), the app queues analysis requests locally when offline, implementing an exponential 3-retry background sync strategy once connectivity is restored.
 
 ---
