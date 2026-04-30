@@ -1,5 +1,5 @@
 fastapi==0.111.0
-openai
+google-generativeai
 # Python 3.13 requires newer pydantic/pydantic-core
 pydantic==2.9.2
 pydantic-settings==2.5.2
