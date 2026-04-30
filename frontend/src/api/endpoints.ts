@@ -32,7 +32,7 @@ export async function analyzeTestStrip(
     image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
   };
   const { data } = await apiClient.post<AnalysisResponse<TestStripResult>>(
-    '/analyze/',
+    '/analyze/teststrip',
     payload
   );
   return data;
@@ -46,7 +46,7 @@ export async function analyzeMedScan(
     image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
   };
   const { data } = await apiClient.post<AnalysisResponse<MedScanResult>>(
-    '/analyze/',
+    '/analyze/medscan',
     payload
   );
   return data;
@@ -60,7 +60,7 @@ export async function analyzeWoundAssess(
     image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
   };
   const { data } = await apiClient.post<AnalysisResponse<WoundAssessResult>>(
-    '/analyze/',
+    '/analyze/woundassess',
     payload
   );
   return data;
@@ -74,7 +74,7 @@ export async function analyzeDocReader(
     image_b64: req.image_b64.includes(',') ? req.image_b64.split(',')[1] : req.image_b64
   };
   const { data } = await apiClient.post<AnalysisResponse<DocReaderResult>>(
-    '/analyze/',
+    '/analyze/docreader',
     payload
   );
   return data;
