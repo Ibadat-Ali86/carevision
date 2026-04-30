@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # ── AI Model ─────────────────────────────────────────────────────────────
     gemma_api_key: str
-    gemma_model: str = "gemini-2.0-flash"
+    gemma_model: str = "meta/llama-3.2-11b-vision-instruct"
     gemma_max_retries: int = 2
     gemma_timeout_seconds: int = 30
 
