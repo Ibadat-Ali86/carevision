@@ -12,12 +12,20 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Send, Stethoscope, Image as ImageIcon } from 'lucide-react';
+import { Send, Stethoscope, Image as ImageIcon, Mic, MicOff } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { queryProtocol } from '@/api/endpoints';
 import { useSettingsStore } from '@/store/settingsStore';
+
+// Web Speech API type augmentation — not in standard TS lib
+declare global {
+  interface Window {
+    SpeechRecognition?: any;
+    webkitSpeechRecognition?: any;
+  }
+}
 
 interface Message {
   id: string;
@@ -39,10 +47,16 @@ export default function ProtocolAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const { language } = useSettingsStore();
   const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Check SpeechRecognition availability (Chromium-only)
+  const speechSupported = typeof window !== 'undefined' &&
+    !!(window.SpeechRecognition ?? window.webkitSpeechRecognition);
 
   // Extract optional context passed from AnalysisPage
   const state = location.state as { image_b64?: string; context?: string } | null;
@@ -114,6 +128,37 @@ export default function ProtocolAssistant() {
     }
   }, [isLoading, language]);
 
+  // Voice input — starts/stops SpeechRecognition
+  const toggleListening = useCallback(() => {
+    if (!speechSupported) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognitionAPI = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = language === 'en' ? 'en-US' : language;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? '';
+      setInput(prev => prev ? `${prev} ${transcript}` : transcript);
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [speechSupported, isListening, language]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     void sendMessage(input);
@@ -132,7 +177,7 @@ export default function ProtocolAssistant() {
 
       {/* Full-height chat container */}
       <div className="flex-1 flex flex-col" style={{ overflow: 'hidden' }}>
-        <PageContainer className="flex-1 flex flex-col" style={{ paddingBottom: 0 }}>
+        <PageContainer className="flex-1 flex flex-col">
           {/* Messages area */}
           <div
             className="flex-1 overflow-y-auto space-y-4"
@@ -290,7 +335,7 @@ export default function ProtocolAssistant() {
         >
           <form
             onSubmit={handleSubmit}
-            className="flex gap-3 items-end mx-auto"
+            className="flex gap-2 items-end mx-auto"
             style={{ maxWidth: '800px' }}
           >
             <textarea
@@ -298,21 +343,52 @@ export default function ProtocolAssistant() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask a clinical protocol question..."
+              placeholder={isListening ? 'Listening… speak now' : 'Ask a clinical protocol question…'}
               className="flex-1 resize-none rounded-lg text-sm"
               rows={1}
               maxLength={1000}
               aria-label="Message input"
               style={{
                 padding: '10px 14px',
-                border: '1px solid var(--border-default)',
-                backgroundColor: 'var(--bg-subtle)',
+                border: `1px solid ${isListening ? 'rgba(239,68,68,0.6)' : 'var(--border-default)'}`,
+                backgroundColor: isListening ? 'rgba(239,68,68,0.04)' : 'var(--bg-subtle)',
                 color: 'var(--text-primary)',
                 minHeight: '44px',
                 maxHeight: '120px',
                 overflowY: 'auto',
+                transition: 'border-color 200ms ease, background-color 200ms ease',
               }}
             />
+
+            {/* Voice input button — only rendered when SpeechRecognition is available */}
+            {speechSupported && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                className="flex-shrink-0"
+                aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                title={isListening ? 'Stop listening' : 'Speak your question'}
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  padding: 0,
+                  borderRadius: '0.5rem',
+                  border: `1px solid ${isListening ? 'rgba(239,68,68,0.4)' : 'var(--border-default)'}`,
+                  backgroundColor: isListening ? 'rgba(239,68,68,0.08)' : 'var(--bg-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 200ms ease',
+                }}
+              >
+                {isListening
+                  ? <MicOff size={18} aria-hidden style={{ color: '#EF4444' }} className="animate-pulse-slow" />
+                  : <Mic size={18} aria-hidden style={{ color: 'var(--text-secondary)' }} />
+                }
+              </button>
+            )}
+
             <button
               type="submit"
               className="btn-primary flex-shrink-0"
@@ -324,7 +400,9 @@ export default function ProtocolAssistant() {
             </button>
           </form>
           <p className="text-xs text-center mt-2" style={{ color: 'var(--text-tertiary)' }}>
-            Press Enter to send &middot; Shift+Enter for new line
+            {speechSupported
+              ? 'Press Enter to send · Shift+Enter for new line · Mic button for voice input'
+              : 'Press Enter to send · Shift+Enter for new line'}
           </p>
         </div>
       </div>

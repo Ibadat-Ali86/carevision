@@ -8,13 +8,15 @@
  *   3. About — version, license, links
  */
 
-import React from 'react';
-import { Globe, Database, Info, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Globe, Database, Info, Trash2, RefreshCw, AlertCircle, MapPin } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { LanguageSelector } from '@/components/shared/LanguageSelector';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
+import { useSettingsStore } from '@/store/settingsStore';
+import { validateLocationCode } from '@/utils/validators';
 import { format } from 'date-fns';
 
 function SectionCard({
@@ -56,6 +58,19 @@ function SectionCard({
 export default function Settings() {
   const { items, pendingCount, isLoading, refresh, retryItem, discardItem, clearAll } =
     useOfflineQueue();
+  const { locationCode, setLocationCode } = useSettingsStore();
+  const [locationInput, setLocationInput] = useState(locationCode);
+  const [locationError, setLocationError] = useState('');
+
+  const handleLocationSave = () => {
+    const trimmed = locationInput.trim();
+    if (trimmed && !validateLocationCode(trimmed)) {
+      setLocationError('Use only letters, numbers, hyphens, or underscores (max 50 chars)');
+      return;
+    }
+    setLocationError('');
+    setLocationCode(trimmed);
+  };
 
   const pendingItems = items.filter(i => i.status === 'pending' || i.status === 'retrying');
   const failedItems  = items.filter(i => i.status === 'failed');
@@ -87,6 +102,51 @@ export default function Settings() {
               <LanguageSelector />
             </div>
           </div>
+        </SectionCard>
+
+        {/* 1b. Location Code */}
+        <SectionCard icon={MapPin} title="Location Code">
+          <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+            Your CHW location identifier. Used to load your encounter history from the Patient Log.
+            Ask your supervisor if unsure (e.g. &quot;DISTRICT_01&quot;, &quot;KIGALI_CHW_05&quot;).
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={locationInput}
+              onChange={e => { setLocationInput(e.target.value); setLocationError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleLocationSave()}
+              placeholder="e.g. DISTRICT_01"
+              maxLength={50}
+              aria-label="Location code"
+              aria-describedby={locationError ? 'location-error' : undefined}
+              className="flex-1 text-sm rounded-lg"
+              style={{
+                padding: '9px 12px',
+                border: `1px solid ${locationError ? 'rgba(239,68,68,0.6)' : 'var(--border-default)'}`,
+                backgroundColor: 'var(--bg-subtle)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleLocationSave}
+              className="btn-primary"
+              style={{ minHeight: 'auto', padding: '9px 16px', fontSize: '0.8125rem' }}
+            >
+              Save
+            </button>
+          </div>
+          {locationError && (
+            <p id="location-error" className="text-xs mt-1" style={{ color: '#B91C1C' }}>
+              {locationError}
+            </p>
+          )}
+          {locationCode && !locationError && (
+            <p className="text-xs mt-1" style={{ color: '#0A6E5C' }}>
+              Active: <span className="font-mono font-semibold">{locationCode}</span>
+            </p>
+          )}
         </SectionCard>
 
         {/* 2. Offline Data Management */}
@@ -135,7 +195,7 @@ export default function Settings() {
                     Failed Items ({failedItems.length})
                   </p>
                 </div>
-                <div className="divide-y" style={{ divideColor: 'var(--border-subtle)' }}>
+                <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {failedItems.map(item => (
                     <div key={item.id} className="flex items-center justify-between px-4 py-3">
                       <div>

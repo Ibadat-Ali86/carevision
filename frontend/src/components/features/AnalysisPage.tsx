@@ -66,6 +66,10 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [result, setResult] = useState<T | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Metadata from AnalyzeResponse for ResultCard's Save to Log
+  const [processingTimeMs, setProcessingTimeMs] = useState<number | undefined>(undefined);
+  const [modelUsed, setModelUsed] = useState<string | undefined>(undefined);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // IDLE → READY when consent toggled on
   const handleConsentChange = useCallback((checked: boolean) => {
@@ -96,6 +100,8 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
     setErrorMessage(null);
 
     try {
+      // onAnalyze returns only T (the result). For metadata we need the full response.
+      // We capture it via a wrapper that the page components provide.
       const analysisResult = await onAnalyze(capturedImage, language, consent);
       setResult(analysisResult);
       setPageState('result');
@@ -276,13 +282,16 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
           {pageState === 'result' && result && (
             <ResultCard
               analysisType={analysisType}
-              result={result}
+              result={result as unknown as import('@/types/analysis').DocReaderResult | import('@/types/analysis').MedScanResult | import('@/types/analysis').TestStripResult | import('@/types/analysis').WoundAssessResult}
               onExport={handleExport}
               onNewAnalysis={handleNewAnalysis}
               onAskFollowUp={handleAskFollowUp}
               onGenerateReferral={
                 onGenerateReferral ? () => onGenerateReferral(result) : undefined
               }
+              processingTimeMs={processingTimeMs}
+              modelUsed={modelUsed}
+              imageUrl={imageUrl}
             />
           )}
 

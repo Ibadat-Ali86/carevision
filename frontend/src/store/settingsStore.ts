@@ -2,7 +2,7 @@
  * CareVision — Zustand Settings Store
  * Spec Reference: Section 4.5 (Settings Page), Section 5.1 (Onboarding)
  *
- * Persists: language preference, consent default, onboarding state.
+ * Persists: language preference, consent default, onboarding state, location code.
  * Storage: localStorage (survives app restarts; cleared by user in Settings).
  */
 
@@ -18,11 +18,18 @@ interface SettingsStore {
   onboardingCompleted: boolean;
   /** Remembered consent state (user preference, not per-session) */
   defaultConsent: boolean;
+  /**
+   * CHW location identifier — used as the key for GET /log/{location_code}.
+   * Set by the CHW in Settings. Defaults to '' (empty = no log loading).
+   * Not authenticated — data isolation is by location code only.
+   */
+  locationCode: string;
 
   // Actions
   setLanguage: (lang: LanguageCode) => void;
   setOnboardingCompleted: () => void;
   setDefaultConsent: (value: boolean) => void;
+  setLocationCode: (code: string) => void;
   resetSettings: () => void;
 }
 
@@ -41,15 +48,18 @@ export const useSettingsStore = create<SettingsStore>()(
       language: getInitialLanguage(),
       onboardingCompleted: false,
       defaultConsent: false,
+      locationCode: '',
 
       setLanguage: (lang) => set({ language: lang }),
       setOnboardingCompleted: () => set({ onboardingCompleted: true }),
       setDefaultConsent: (value) => set({ defaultConsent: value }),
+      setLocationCode: (code) => set({ locationCode: code.trim() }),
       resetSettings: () =>
         set({
           language: getInitialLanguage(),
           onboardingCompleted: false,
           defaultConsent: false,
+          locationCode: '',
         }),
     }),
     {

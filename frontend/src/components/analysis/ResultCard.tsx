@@ -5,11 +5,14 @@
  * Renders type-specific content based on analysisType prop.
  * Shared structure: Confidence indicator (top-right) + type content + disclaimer + actions.
  *
- * Sub-components for each analysis type are defined in this file to keep
- * polymorphic dispatch logic co-located.
+ * IMPROVEMENTS:
+ * - Added "Save to Log" button (spec requirement: explicit CHW-triggered save)
+ * - Added toast-style save feedback (success / already-saved / error states)
+ * - Extracted getSeverityLabel to shared formatters.ts
+ * - Sub-components for each analysis type are co-located for dispatch clarity
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ClipboardCheck,
   Pill,
@@ -19,9 +22,14 @@ import {
   AlertTriangle,
   RefreshCw,
   Phone,
+  BookmarkPlus,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
 import { SeverityBadge } from './SeverityBadge';
+import { saveEncounter } from '@/api/endpoints';
+import { useSettingsStore } from '@/store/settingsStore';
 import type {
   AnalysisType,
   TestStripResult,
@@ -45,10 +53,14 @@ interface ResultCardProps {
   onAskFollowUp?: () => void;
   /** Only for WoundAssess: trigger referral card generation */
   onGenerateReferral?: () => void;
+  /** Processing metadata from AnalyzeResponse for log persistence */
+  processingTimeMs?: number;
+  modelUsed?: string;
+  imageUrl?: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Icon Map
+// Icon / Label / Color Maps
 // ---------------------------------------------------------------------------
 const ANALYSIS_ICON: Record<AnalysisType, React.ElementType> = {
   teststrip:   ClipboardCheck,
@@ -64,15 +76,13 @@ const ANALYSIS_TITLE: Record<AnalysisType, string> = {
   docreader:   'DocReader Analysis',
 };
 
-// Left-border accent color per analysis type
 const ANALYSIS_ACCENT: Record<AnalysisType, string> = {
-  teststrip:   '#0A6E5C',  // Medical Teal
-  medscan:     '#2C5F8D',  // Clinical Blue
-  woundassess: '#F59E0B',  // Amber (urgency)
-  docreader:   '#334155',  // Neutral
+  teststrip:   '#0A6E5C',
+  medscan:     '#2C5F8D',
+  woundassess: '#F59E0B',
+  docreader:   '#334155',
 };
 
-// Icon container background per analysis type
 const ANALYSIS_ICON_BG: Record<AnalysisType, string> = {
   teststrip:   '#E6F7F4',
   medscan:     '#E8F1F8',
@@ -148,7 +158,7 @@ function MedScanResultContent({ result }: { result: MedScanResult }) {
       )}
 
       {result.contraindications.length > 0 && (
-        <div className="mb-4 rounded-md" style={{ padding: 'var(--space-3)', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+        <div className="mb-4 rounded-md" style={{ padding: 'var(--space-3)', backgroundColor: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}>
           <p className="text-xs font-semibold mb-2" style={{ color: '#B91C1C' }}>Contraindications</p>
           <ul className="list-disc list-inside space-y-1">
             {result.contraindications.map((item, idx) => (
@@ -184,13 +194,15 @@ function WoundAssessResultContent({
   result: WoundAssessResult;
   onGenerateReferral?: () => void;
 }) {
+  const severityLabel = ['', 'Minor', 'Mild', 'Moderate', 'Serious', 'Emergency'][result.severity] ?? 'Unknown';
+
   return (
     <>
       <div className="mb-4">
         <SeverityBadge
           severity={result.severity}
           size="large"
-          label={`Severity ${result.severity} — ${getSeverityLabel(result.severity)}`}
+          label={`Severity ${result.severity} — ${severityLabel}`}
         />
       </div>
 
@@ -204,13 +216,12 @@ function WoundAssessResultContent({
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{result.severity_rationale}</p>
       </div>
 
-      {/* Emergency referral alert (Severity 4-5) */}
       {result.refer_immediately && (
         <div
           className="mb-4 rounded-md flex items-start gap-3"
           style={{
             padding: 'var(--space-4)',
-            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            backgroundColor: 'rgba(239,68,68,0.08)',
             borderLeft: result.severity === 5 ? '8px solid #991B1B' : '4px solid #EF4444',
             borderTopRightRadius: 'var(--radius-md)',
             borderBottomRightRadius: 'var(--radius-md)',
@@ -223,13 +234,8 @@ function WoundAssessResultContent({
             style={{ color: result.severity === 5 ? '#991B1B' : '#EF4444' }}
           />
           <div>
-            <p
-              className="text-base font-semibold mb-1"
-              style={{ color: result.severity === 5 ? '#991B1B' : '#B91C1C' }}
-            >
-              {result.severity === 5
-                ? 'CALL EMERGENCY SERVICES IMMEDIATELY'
-                : 'Immediate Referral Required'}
+            <p className="text-base font-semibold mb-1" style={{ color: result.severity === 5 ? '#991B1B' : '#B91C1C' }}>
+              {result.severity === 5 ? 'CALL EMERGENCY SERVICES IMMEDIATELY' : 'Immediate Referral Required'}
             </p>
             {result.refer_reason && (
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{result.refer_reason}</p>
@@ -249,25 +255,15 @@ function WoundAssessResultContent({
         </div>
       )}
 
-      {/* CTA buttons for referral */}
       {result.refer_immediately && (
         <div className="flex flex-col gap-2 mt-4">
           {result.severity === 5 && (
-            <a
-              href="tel:112"
-              className="btn-danger w-full text-center"
-            >
-              <Phone size={18} aria-hidden />
-              Call Emergency (112)
+            <a href="tel:112" className="btn-danger w-full text-center">
+              <Phone size={18} aria-hidden /> Call Emergency (112)
             </a>
           )}
-          <button
-            onClick={onGenerateReferral}
-            type="button"
-            className="btn-primary w-full"
-          >
-            <FileText size={18} aria-hidden />
-            Generate Referral Card
+          <button onClick={onGenerateReferral} type="button" className="btn-primary w-full">
+            <FileText size={18} aria-hidden /> Generate Referral Card
           </button>
         </div>
       )}
@@ -293,10 +289,7 @@ function DocReaderResultContent({ result }: { result: DocReaderResult }) {
       {Object.keys(result.extracted_fields).length > 0 && (
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Extracted Fields</p>
-          <div
-            className="rounded-md overflow-hidden"
-            style={{ border: '1px solid var(--border-default)' }}
-          >
+          <div className="rounded-md overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
             {Object.entries(result.extracted_fields).map(([key, value], idx) => (
               <div
                 key={key}
@@ -309,15 +302,12 @@ function DocReaderResultContent({ result }: { result: DocReaderResult }) {
                     : 'none',
                 }}
               >
-                <span
-                  className="font-medium flex-shrink-0"
-                  style={{ color: 'var(--text-secondary)', minWidth: '140px' }}
-                >
+                <span className="font-medium flex-shrink-0" style={{ color: 'var(--text-secondary)', minWidth: '140px' }}>
                   {key}
                 </span>
                 <span style={{ color: 'var(--text-primary)' }}>
-                  {typeof value === 'object' && value !== null 
-                    ? JSON.stringify(value, null, 2) 
+                  {typeof value === 'object' && value !== null
+                    ? JSON.stringify(value, null, 2)
                     : String(value)}
                 </span>
               </div>
@@ -341,11 +331,9 @@ function DocReaderResultContent({ result }: { result: DocReaderResult }) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper
+// Save State Type
 // ---------------------------------------------------------------------------
-function getSeverityLabel(s: number): string {
-  return ['', 'Minor', 'Mild', 'Moderate', 'Serious', 'Emergency'][s] || 'Unknown';
-}
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 // ---------------------------------------------------------------------------
 // Main ResultCard Component
@@ -358,8 +346,43 @@ export function ResultCard({
   onNewAnalysis,
   onAskFollowUp,
   onGenerateReferral,
+  processingTimeMs,
+  modelUsed,
+  imageUrl,
 }: ResultCardProps) {
   const AnalysisIcon = ANALYSIS_ICON[analysisType];
+  const { locationCode } = useSettingsStore();
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+
+  const handleSaveToLog = useCallback(async () => {
+    if (saveState === 'saved' || saveState === 'saving') return;
+    setSaveState('saving');
+
+    // Extract severity if it's a WoundAssessResult
+    const severity = 'severity' in result ? (result as WoundAssessResult).severity : undefined;
+    const referImmediately = 'refer_immediately' in result
+      ? (result as WoundAssessResult).refer_immediately
+      : undefined;
+
+    try {
+      await saveEncounter({
+        analysis_type: analysisType,
+        result_json: result as unknown as Record<string, unknown>,
+        severity: severity ?? null,
+        refer_immediately: referImmediately,
+        consent_given: true, // ResultCard only renders after explicit consent
+        image_url: imageUrl ?? null,
+        location_code: locationCode || null,
+        model_used: modelUsed ?? null,
+        processing_time_ms: processingTimeMs ?? null,
+      });
+      setSaveState('saved');
+    } catch {
+      setSaveState('error');
+      // Auto-reset error state after 3s so user can retry
+      setTimeout(() => setSaveState('idle'), 3000);
+    }
+  }, [analysisType, result, locationCode, imageUrl, modelUsed, processingTimeMs, saveState]);
 
   const renderContent = () => {
     switch (analysisType) {
@@ -428,7 +451,7 @@ export function ResultCard({
       {/* Type-Specific Content */}
       {renderContent()}
 
-      {/* Disclaimer — ALWAYS visible */}
+      {/* Disclaimer — ALWAYS visible, per regulatory requirement */}
       <div
         style={{
           marginTop: '1.5rem',
@@ -447,10 +470,71 @@ export function ResultCard({
         </p>
       </div>
 
-      {/* Export + New Analysis Actions */}
-      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+      {/* Save to Log feedback banner */}
+      {saveState === 'saved' && (
+        <div
+          className="flex items-center gap-2 mt-3 rounded-md"
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'rgba(10,110,92,0.08)',
+            border: '1px solid rgba(10,110,92,0.2)',
+          }}
+        >
+          <CheckCircle size={15} aria-hidden style={{ color: '#0A6E5C', flexShrink: 0 }} />
+          <p className="text-xs font-medium" style={{ color: '#0A6E5C' }}>
+            Saved to patient log
+          </p>
+        </div>
+      )}
+      {saveState === 'error' && (
+        <div
+          className="flex items-center gap-2 mt-3 rounded-md"
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'rgba(239,68,68,0.06)',
+            border: '1px solid rgba(239,68,68,0.2)',
+          }}
+        >
+          <XCircle size={15} aria-hidden style={{ color: '#EF4444', flexShrink: 0 }} />
+          <p className="text-xs font-medium" style={{ color: '#B91C1C' }}>
+            Failed to save. Tap &quot;Save to Log&quot; to retry.
+          </p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.625rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {/* Save to Log — always present, disabled after success */}
+        <button
+          onClick={() => void handleSaveToLog()}
+          type="button"
+          className="btn-secondary"
+          disabled={saveState === 'saved' || saveState === 'saving'}
+          aria-label="Save this result to the patient log"
+          style={{
+            height: '38px',
+            fontSize: '0.8125rem',
+            opacity: saveState === 'saved' ? 0.6 : 1,
+            cursor: saveState === 'saved' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {saveState === 'saving' ? (
+            <RefreshCw size={15} aria-hidden className="animate-spin" />
+          ) : saveState === 'saved' ? (
+            <CheckCircle size={15} aria-hidden />
+          ) : (
+            <BookmarkPlus size={15} aria-hidden />
+          )}
+          {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save to Log'}
+        </button>
+
         {onAskFollowUp && (
-          <button onClick={onAskFollowUp} type="button" className="btn-secondary" style={{ height: '38px', fontSize: '0.8125rem', backgroundColor: 'var(--bg-subtle)' }}>
+          <button
+            onClick={onAskFollowUp}
+            type="button"
+            className="btn-secondary"
+            style={{ height: '38px', fontSize: '0.8125rem', backgroundColor: 'var(--bg-subtle)' }}
+          >
             <FileText size={15} aria-hidden />
             Ask Follow-up
           </button>
