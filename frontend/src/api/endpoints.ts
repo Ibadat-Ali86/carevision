@@ -117,17 +117,27 @@ export interface EncounterLogRead extends EncounterLogCreate {
 
 /** POST /log/ — saves a CHW encounter. Must be user-triggered; never auto-called. */
 export async function saveEncounter(req: EncounterLogCreate): Promise<EncounterLogRead> {
-  const { data } = await apiClient.post<EncounterLogRead>('/log/', req);
-  return data;
+  const payload = {
+    ...req,
+    result_json: JSON.stringify(req.result_json),
+  };
+  const { data } = await apiClient.post<any>('/log/', payload);
+  return {
+    ...data,
+    result_json: typeof data.result_json === 'string' ? JSON.parse(data.result_json) : data.result_json,
+  };
 }
 
 /** GET /log/{location_code} — fetches 50 most-recent encounters for a location. */
 export async function fetchEncounters(locationCode: string): Promise<EncounterLogRead[]> {
   if (!locationCode.trim()) return [];
-  const { data } = await apiClient.get<{ encounters: EncounterLogRead[]; count: number }>(
+  const { data } = await apiClient.get<{ encounters: any[]; count: number }>(
     `/log/${encodeURIComponent(locationCode)}`
   );
-  return data.encounters;
+  return data.encounters.map((e: any) => ({
+    ...e,
+    result_json: typeof e.result_json === 'string' ? JSON.parse(e.result_json) : e.result_json,
+  }));
 }
 
 // ---------------------------------------------------------------------------
