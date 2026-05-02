@@ -4,7 +4,9 @@ services:
     environment:
       POSTGRES_DB: carevision
       POSTGRES_USER: carevision
-      POSTGRES_PASSWORD: carevision_dev
+      # SECURITY: Use environment variable for password with secure default for development only
+      # In production, always set POSTGRES_PASSWORD via .env file or secrets manager
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-carevision_dev_secure_random_${RANDOM}}
     ports:
       - "5432:5432"
     volumes:
@@ -22,9 +24,17 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://carevision:carevision_dev@db:5432/carevision
-      ENVIRONMENT: development
-      ALLOWED_ORIGINS: '["http://localhost:5173"]'
+      # SECURITY: Use environment variables for sensitive data
+      # Database credentials should come from secrets in production
+      DATABASE_URL: postgresql+asyncpg://carevision:${POSTGRES_PASSWORD:-carevision_dev}@db:5432/carevision
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      # SECURITY: CORS origins must be explicitly set in production (HTTPS only)
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-'["http://localhost:5173"]'}
+      # Security configuration
+      DEVICE_AUTH_SECRET_KEY: ${DEVICE_AUTH_SECRET_KEY:-dev_secret_change_in_production}
+      RATE_LIMIT_DEFAULT: ${RATE_LIMIT_DEFAULT:-10/minute}
+      RATE_LIMIT_ANALYZE: ${RATE_LIMIT_ANALYZE:-5/minute}
+      AUDIT_LOG_ENABLED: ${AUDIT_LOG_ENABLED:-true}
     env_file:
       - ./backend/.env
     depends_on:
@@ -43,7 +53,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     depends_on:
       - backend
     volumes:

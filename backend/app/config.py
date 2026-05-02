@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -18,7 +19,7 @@ class Settings(BaseSettings):
     """
 
     # ── AI Model ─────────────────────────────────────────────────────────────
-    gemma_api_key: str
+    gemma_api_key: SecretStr  # Use SecretStr to prevent accidental logging
     gemma_model: str = "meta/llama-3.2-11b-vision-instruct"
     gemma_max_retries: int = 2
     gemma_timeout_seconds: int = 30
@@ -32,13 +33,13 @@ class Settings(BaseSettings):
     # All R2 vars optional — storage.is_configured() returns False when absent.
     # Storage failure is non-fatal by design; clinical response always returned.
     r2_account_id: str = ""
-    r2_access_key: str = ""
-    r2_secret_key: str = ""
+    r2_access_key: SecretStr = SecretStr("")  # Use SecretStr for sensitive data
+    r2_secret_key: SecretStr = SecretStr("")  # Use SecretStr for sensitive data
     r2_bucket: str = "carevision"
     r2_public_url: str = ""
 
     # ── Observability ─────────────────────────────────────────────────────────
-    logfire_token: str = ""
+    logfire_token: SecretStr = SecretStr("")  # Use SecretStr for sensitive data
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     # JSON array string in env: '["https://carevision.vercel.app"]'
@@ -47,13 +48,54 @@ class Settings(BaseSettings):
     # ── Runtime ───────────────────────────────────────────────────────────────
     environment: str = "development"
 
+    # ── Security ─────────────────────────────────────────────────────────────
+    # Device authentication secret key (required for production)
+    device_auth_secret_key: SecretStr = SecretStr("dev_secret_key_change_in_production")
+    
+    # Rate limiting configuration
+    rate_limit_default: str = "10/minute"
+    rate_limit_analyze: str = "5/minute"
+    
+    # Maximum request size in bytes (default: 10MB)
+    max_request_size: int = 10485760
+    
+    # Audit logging for HIPAA compliance
+    audit_log_enabled: bool = True
+
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:
         """Parse ALLOWED_ORIGINS from JSON string or return list as-is."""
         if isinstance(value, str):
-            return json.loads(value)
-        return value
+            origins = json.loads(value)
+        else:
+            origins = value
+        
+        # SECURITY: Block dangerous wildcards
+        if "*" in origins:
+            raise ValueError("Wildcard CORS origins (*) are not allowed for security reasons")
+        
+        # SECURITY: Validate HTTPS in production
+        if os.getenv("ENVIRONMENT", "development") == "production":
+            for origin in origins:
+                if not origin.startswith("https://"):
+                    raise ValueError(
+                        f"Production CORS origins must use HTTPS: {origin}. "
+                        "HTTP origins are only allowed in development."
+                    )
+        
+        return origins
+
+    @field_validator("environment", mode="after")
+    @classmethod
+    def validate_environment(cls, value: str) -> str:
+        """Validate environment value."""
+        valid_environments = {"development", "production", "staging", "testing"}
+        if value.lower() not in valid_environments:
+            raise ValueError(
+                f"Invalid environment '{value}'. Must be one of: {', '.join(valid_environments)}"
+            )
+        return value.lower()
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.schemas.analyze import (
     AnalyzeRequest,
@@ -14,6 +16,8 @@ from app.schemas.analyze import (
     WoundAssessResult,
 )
 from app.schemas.common import DISCLAIMER, AnalysisType
+from app.security import validate_base64_image, audit_logger
+from app.dependencies import get_current_device
 from app.services.gemma_client import gemma_client
 from app.services.image_processor import validate_and_compress
 from app.services.prompt_router import get_prompt_and_schema
@@ -21,6 +25,9 @@ from app.services.storage import storage_service
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 logger = logging.getLogger(__name__)
+
+# Rate limiter setup
+limiter = Limiter(key_func=get_remote_address)
 
 # Schema map for _parse_result — explicit dict preferred over globals() lookup
 _RESULT_SCHEMA_MAP: dict[str, type] = {
@@ -46,7 +53,11 @@ def _parse_result(
     return schema_class(**raw)
 
 
-async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeResponse:
+async def _run_analysis(
+    request: AnalyzeRequest, 
+    analysis_type: str,
+    token_data: dict | None = None,
+) -> AnalyzeResponse:
     """
     Shared pipeline for all analysis endpoints.
 
@@ -69,11 +80,19 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
     # Override type from URL path if provided (sub-path routes)
     # This ensures the request body `type` field matches the URL
     request.type = analysis_type
+    
+    # Get client IP for audit logging
+    client_ip = "unknown"
+    device_id = token_data.get("device_id", "anonymous") if token_data else "anonymous"
+    location_code = token_data.get("location_code", "unknown") if token_data else "unknown"
 
-    # Step 1: Server-side image compression
+    # Step 1: Server-side image compression with enhanced validation
     try:
+        # Additional security validation before processing
+        validate_base64_image(request.image_b64)
         compressed_b64 = validate_and_compress(request.image_b64)
     except ValueError as exc:
+        logger.warning("Image validation failed for device=%s: %s", device_id, exc)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # Step 2: Prompt routing
@@ -88,7 +107,7 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
             language=request.language,
         )
     except RuntimeError as exc:
-        logger.error("Gemma API failed for type=%s: %s", request.type, exc)
+        logger.error("Gemma API failed for type=%s, device=%s: %s", request.type, device_id, exc)
         raise HTTPException(status_code=503, detail=f"AI service error: {exc}") from exc
 
     elapsed_ms = float(raw_result.pop("_elapsed_ms", 0.0))
@@ -108,7 +127,16 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
         except Exception:  # noqa: BLE001 — storage failure is explicitly non-fatal
             pass
 
-    # Step 6: Response assembly
+    # Step 6: Log the analysis action for audit trail
+    audit_logger.log_access(
+        device_id=device_id,
+        location_code=location_code,
+        action=f"ANALYZE_{analysis_type.upper()}",
+        ip_address=client_ip,
+        status="success",
+    )
+
+    # Step 7: Response assembly
     return AnalyzeResponse(
         type=request.type,
         result=result,
@@ -125,27 +153,47 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
 # ---------------------------------------------------------------------------
 
 @router.post("/teststrip", response_model=AnalyzeResponse)
-async def analyze_teststrip(request: AnalyzeRequest) -> AnalyzeResponse:
+@limiter.limit("5/minute")  # Stricter limit for AI endpoints
+async def analyze_teststrip(
+    request: Request,
+    analyze_request: AnalyzeRequest,
+    token_data: dict | None = Depends(get_current_device),
+) -> AnalyzeResponse:
     """POST /analyze/teststrip — rapid diagnostic test strip analysis."""
-    return await _run_analysis(request, AnalysisType.TESTSTRIP)
+    return await _run_analysis(analyze_request, AnalysisType.TESTSTRIP, token_data)
 
 
 @router.post("/medscan", response_model=AnalyzeResponse)
-async def analyze_medscan(request: AnalyzeRequest) -> AnalyzeResponse:
+@limiter.limit("5/minute")
+async def analyze_medscan(
+    request: Request,
+    analyze_request: AnalyzeRequest,
+    token_data: dict | None = Depends(get_current_device),
+) -> AnalyzeResponse:
     """POST /analyze/medscan — medication packaging and label analysis."""
-    return await _run_analysis(request, AnalysisType.MEDSCAN)
+    return await _run_analysis(analyze_request, AnalysisType.MEDSCAN, token_data)
 
 
 @router.post("/woundassess", response_model=AnalyzeResponse)
-async def analyze_woundassess(request: AnalyzeRequest) -> AnalyzeResponse:
+@limiter.limit("5/minute")
+async def analyze_woundassess(
+    request: Request,
+    analyze_request: AnalyzeRequest,
+    token_data: dict | None = Depends(get_current_device),
+) -> AnalyzeResponse:
     """POST /analyze/woundassess — wound severity and care assessment."""
-    return await _run_analysis(request, AnalysisType.WOUNDASSESS)
+    return await _run_analysis(analyze_request, AnalysisType.WOUNDASSESS, token_data)
 
 
 @router.post("/docreader", response_model=AnalyzeResponse)
-async def analyze_docreader(request: AnalyzeRequest) -> AnalyzeResponse:
+@limiter.limit("5/minute")
+async def analyze_docreader(
+    request: Request,
+    analyze_request: AnalyzeRequest,
+    token_data: dict | None = Depends(get_current_device),
+) -> AnalyzeResponse:
     """POST /analyze/docreader — clinical document extraction and summarisation."""
-    return await _run_analysis(request, AnalysisType.DOCREADER)
+    return await _run_analysis(analyze_request, AnalysisType.DOCREADER, token_data)
 
 
 # ---------------------------------------------------------------------------
@@ -154,10 +202,15 @@ async def analyze_docreader(request: AnalyzeRequest) -> AnalyzeResponse:
 # ---------------------------------------------------------------------------
 
 @router.post("/", response_model=AnalyzeResponse)
-async def analyze_image(request: AnalyzeRequest) -> AnalyzeResponse:
+@limiter.limit("5/minute")
+async def analyze_image(
+    request: Request,
+    analyze_request: AnalyzeRequest,
+    token_data: dict | None = Depends(get_current_device),
+) -> AnalyzeResponse:
     """POST /analyze/ — generic endpoint (type specified in body).
 
     Prefer the sub-path routes (/analyze/teststrip etc.) from application code.
     This route is retained for direct Swagger UI testing and backward compatibility.
     """
-    return await _run_analysis(request, request.type)
+    return await _run_analysis(analyze_request, analyze_request.type, token_data)

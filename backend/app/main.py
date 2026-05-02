@@ -4,13 +4,17 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.security import SecurityHeadersMiddleware
 
 from app.config import settings
 from app.db.session import init_db
 from app.dependencies import global_exception_handler
 from app.routes import analyze, log, protocols, referral
+from app.security import get_security_headers
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,7 @@ def create_app() -> FastAPI:
     )
 
     # CORS — origins controlled by ALLOWED_ORIGINS env var
+    # SECURITY: Origins validated in config.py (no wildcards, HTTPS required in production)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
@@ -61,6 +66,13 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "Authorization"],
     )
+
+    # Security headers middleware - adds HSTS, X-Frame-Options, etc.
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    # Rate limiter - attach to app state for use in routes
+    app.state.limiter = analyze.limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # Global exception handler — sanitizes all 500 responses
     app.add_exception_handler(Exception, global_exception_handler)
@@ -72,12 +84,23 @@ def create_app() -> FastAPI:
     app.include_router(log.router)
 
     @app.get("/health", tags=["health"])
-    async def health_check() -> dict[str, str]:
+    async def health_check(request: Request) -> dict[str, str]:
         """Liveness probe — no DB or AI dependency.
 
         Target latency: < 100ms. Used by Koyeb health checks and UptimeRobot monitoring.
+        SECURITY: Removed version info from response to prevent information disclosure.
         """
-        return {"status": "ok", "version": "1.0.0"}
+        # Add security headers to health endpoint
+        return {"status": "ok"}
+
+    # Add custom security headers to all responses
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        headers = get_security_headers()
+        for header, value in headers.items():
+            response.headers[header] = value
+        return response
 
     return app
 
