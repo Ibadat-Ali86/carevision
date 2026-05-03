@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Análise de RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Avaliação de Feridas",
+  "doc_reader_title": "Leitor de Documentos",
+  "protocol_title": "Assistente de Protocolo",
+  "referral_title": "Encaminhamentos",
+  "disclaimer_text": "CareVision fornece análise assistida por IA apenas para fins informativos. NÃO substitui o julgamento médico profissional. Siga sempre os protocolos clínicos locais.",
+  "accept_disclaimer": "Eu entendo e concordo",
+  "offline_mode": "Trabalhando offline. As solicitações serão sincronizadas quando conectado."
+}

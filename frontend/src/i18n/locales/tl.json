@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Pagsusuri ng RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Pagsusuri ng Sugat",
+  "doc_reader_title": "Mambabasa ng Dokumento",
+  "protocol_title": "Katulong sa Protokol",
+  "referral_title": "Mga Referral",
+  "disclaimer_text": "Nagbibigay ang CareVision ng pagsusuri na tinutulungan ng AI para sa layuning pang-impormasyon lamang. HINDI ito kapalit ng propesyonal na hatol na medikal. Laging sundin ang mga lokal na klinikal na protokol.",
+  "accept_disclaimer": "Naiintindihan at sumasang-ayon ako",
+  "offline_mode": "Nagtatrabaho Offline. Mag-si-sync ang mga kahilingan kapag nakakonekta."
+}

@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Analisis RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Penilaian Luka",
+  "doc_reader_title": "Pembaca Dokumen",
+  "protocol_title": "Asisten Protokol",
+  "referral_title": "Rujukan",
+  "disclaimer_text": "CareVision memberikan analisis berbantuan AI untuk tujuan informasi saja. BUKAN pengganti penilaian medis profesional. Selalu ikuti protokol klinis lokal.",
+  "accept_disclaimer": "Saya mengerti dan setuju",
+  "offline_mode": "Bekerja Offline. Permintaan akan disinkronkan saat terhubung."
+}

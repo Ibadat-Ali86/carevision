@@ -10,11 +10,14 @@
  *   - Suspense fallback for lazy-loaded pages
  */
 
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { OfflineIndicator } from '@/components/shared/OfflineIndicator';
+import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useAuthStore } from '@/store/authStore';
 
 // Lazy-load all pages for PWA code-splitting (reduces initial bundle)
 const Home              = lazy(() => import('@/pages/Home'));
@@ -27,6 +30,8 @@ const ProtocolAssistant = lazy(() => import('@/pages/ProtocolAssistant'));
 const Settings          = lazy(() => import('@/pages/Settings'));
 const PatientLog        = lazy(() => import('@/pages/PatientLog'));
 const ReferralCard      = lazy(() => import('@/pages/ReferralCard'));
+const Login             = lazy(() => import('@/pages/Login'));
+const Register          = lazy(() => import('@/pages/Register'));
 
 // WHY 30s staleTime: Analysis results are immutable once created.
 // Setting staleTime prevents redundant refetches on window focus.
@@ -62,6 +67,22 @@ function PageFallback() {
 }
 
 export default function App() {
+  const { language } = useSettingsStore();
+  const { i18n } = useTranslation();
+  const checkAuth = useAuthStore((s) => s.checkAuth);
+
+  useEffect(() => {
+    if (i18n.language !== language) {
+      void i18n.changeLanguage(language);
+    }
+  }, [language, i18n]);
+
+  // Restore session from IndexedDB on app mount (non-blocking)
+  useEffect(() => {
+    void checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -81,6 +102,8 @@ export default function App() {
               <Route path="/settings"    element={<Settings />} />
               <Route path="/log"         element={<PatientLog />} />
               <Route path="/referral"    element={<ReferralCard />} />
+              <Route path="/login"       element={<Login />} />
+              <Route path="/register"    element={<Register />} />
 
               {/* 404 fallback */}
               <Route path="*" element={

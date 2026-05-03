@@ -19,7 +19,7 @@ import { DisclaimerBanner } from '@/components/shared/DisclaimerBanner';
 import { ConsentToggle } from '@/components/shared/ConsentToggle';
 import { CameraCapture } from '@/components/analysis/CameraCapture';
 import { ImagePreview } from '@/components/analysis/ImagePreview';
-import { LoadingState } from '@/components/shared/LoadingState';
+import { ClinicalLoadingState } from '@/components/shared/LoadingState';
 import { ResultCard } from '@/components/analysis/ResultCard';
 import type { AnalysisType, BaseAnalysisResult } from '@/types/analysis';
 import type { AnalysisPageState } from '@/types/app';
@@ -275,7 +275,7 @@ export function AnalysisPage<T extends BaseAnalysisResult>({
 
           {/* ANALYZING */}
           {pageState === 'analyzing' && (
-            <LoadingState message="Analyzing image with Gemma AI..." />
+            <ClinicalLoadingState analysisType={analysisType} />
           )}
 
           {/* RESULT */}

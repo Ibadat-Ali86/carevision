@@ -12,6 +12,7 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -25,6 +26,7 @@ import { Link } from 'react-router-dom';
 export default function Home() {
   const navigate = useNavigate();
   const { onboardingCompleted } = useSettingsStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!onboardingCompleted) {
@@ -178,7 +180,7 @@ export default function Home() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  Protocol Assistant
+                  {t('protocol_title')}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                   Ask WHO clinical guideline questions

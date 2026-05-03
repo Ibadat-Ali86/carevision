@@ -37,7 +37,7 @@ class GemmaClient:
         
         full_prompt = (
             f"{system_prompt}\n\n"
-            f"IMPORTANT: Respond in language code: {language}\n\n"
+            f"IMPORTANT: All natural language text in your JSON values MUST be in the language corresponding to ISO code '{language}'.\n\n"
             f"OUTPUT INSTRUCTIONS:\n"
             f"- Output ONLY a valid JSON object containing the requested clinical data.\n"
             f"- DO NOT output a JSON Schema definition (do not use 'properties' or 'type: object' as root keys).\n"
@@ -113,8 +113,10 @@ class GemmaClient:
         
         text_prompt = (
             f"{SYSTEM_PROMPT}\n\n"
+            f"CRITICAL INSTRUCTION: You MUST formulate your entire response in the language corresponding to the ISO code '{language}'. "
+            f"Do NOT answer in English unless the language code is 'en'. "
             f"If the user explicitly asks you to answer in a different language, you MUST honor their request. "
-            f"Otherwise, respond in the default language code: {language}\n\n"
+            f"Otherwise, your response MUST be in the language: {language}\n\n"
             f"{context_block}"
             f"Question: {query}"
         )

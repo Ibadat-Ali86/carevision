@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.session import init_db
 from app.dependencies import global_exception_handler
-from app.routes import analyze, log, protocols, referral
+from app.routes import analyze, auth, log, protocols, referral
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Register all routers
+    app.include_router(auth.router)
     app.include_router(analyze.router)
     app.include_router(protocols.router)
     app.include_router(referral.router)

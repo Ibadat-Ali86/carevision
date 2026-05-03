@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "RDT বিশ্লেষণ",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "ক্ষত মূল্যায়ন",
+  "doc_reader_title": "নথি রিডার",
+  "protocol_title": "প্রোটোকল সহকারী",
+  "referral_title": "রেফারেল",
+  "disclaimer_text": "CareVision শুধুমাত্র তথ্যগত উদ্দেশ্যে এআই-সহায়তা বিশ্লেষণ প্রদান করে। এটি পেশাদার চিকিৎসা রায়ের বিকল্প নয়। সর্বদা স্থানীয় ক্লিনিকাল প্রোটোকল অনুসরণ করুন।",
+  "accept_disclaimer": "আমি বুঝতে পেরেছি এবং একমত",
+  "offline_mode": "অফলাইনে কাজ করছে। সংযুক্ত হলে অনুরোধগুলি সিঙ্ক হবে।"
+}

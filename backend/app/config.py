@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     # ── Runtime ───────────────────────────────────────────────────────────────
     environment: str = "development"
 
+    # ── Security ──────────────────────────────────────────────────────────────
+    # WHY required (no default): A missing secret_key means JWT verification
+    # cannot happen. Fail loudly at startup rather than silently accepting
+    # unsigned tokens. Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    secret_key: str = "dev-secret-change-in-production-32chars-minimum"
+
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:

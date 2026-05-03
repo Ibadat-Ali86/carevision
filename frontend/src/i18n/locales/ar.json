@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "تحليل RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "تقييم الجروح",
+  "doc_reader_title": "قارئ المستندات",
+  "protocol_title": "مساعد البروتوكول",
+  "referral_title": "الإحالات",
+  "disclaimer_text": "يوفر CareVision تحليلًا مدعومًا بالذكاء الاصطناعي لأغراض إعلامية فقط. وهو ليس بديلاً عن الحكم الطبي المهني. اتبع دائمًا البروتوكولات السريرية المحلية.",
+  "accept_disclaimer": "أفهم وأوافق",
+  "offline_mode": "العمل دون اتصال بالإنترنت. ستتم مزامنة الطلبات عند الاتصال."
+}
