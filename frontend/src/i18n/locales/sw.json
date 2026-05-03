@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Uchambuzi wa RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Tathmini ya Kidonda",
+  "doc_reader_title": "Msomaji wa Hati",
+  "protocol_title": "Msaidizi wa Itifaki",
+  "referral_title": "Rufaa",
+  "disclaimer_text": "CareVision hutoa uchambuzi unaosaidiwa na AI kwa madhumuni ya habari tu. SIYO mbadala wa uamuzi wa kitaalamu wa matibabu.",
+  "accept_disclaimer": "Ninaelewa na nakubali",
+  "offline_mode": "Inafanya kazi Nje ya Mtandao."
+}

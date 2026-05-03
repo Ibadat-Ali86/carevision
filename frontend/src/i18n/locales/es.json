@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Análisis PDR",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Evaluación de Heridas",
+  "doc_reader_title": "Lector de Documentos",
+  "protocol_title": "Asistente de Protocolo",
+  "referral_title": "Derivaciones",
+  "disclaimer_text": "CareVision proporciona análisis asistido por IA solo con fines informativos. NO sustituye el criterio médico profesional. Siga siempre los protocolos clínicos locales.",
+  "accept_disclaimer": "Entiendo y acepto",
+  "offline_mode": "Trabajando sin conexión. Las solicitudes se sincronizarán al conectarse."
+}

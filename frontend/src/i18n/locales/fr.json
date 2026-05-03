@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Analyse TDR",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Évaluation des plaies",
+  "doc_reader_title": "Lecteur de documents",
+  "protocol_title": "Assistant Protocole",
+  "referral_title": "Références",
+  "disclaimer_text": "CareVision fournit une analyse assistée par IA à des fins d'information uniquement. Il ne remplace PAS le jugement médical professionnel.",
+  "accept_disclaimer": "Je comprends et j'accepte",
+  "offline_mode": "Mode hors ligne. Les requêtes seront synchronisées une fois connecté."
+}

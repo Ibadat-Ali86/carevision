@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "የRDT ምርመራ",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "የቁስል ግምገማ",
+  "doc_reader_title": "ሰነድ አንባቢ",
+  "protocol_title": "የፕሮቶኮል ረዳት",
+  "referral_title": "ሪፈራሎች",
+  "disclaimer_text": "CareVision በመረጃ ላይ የተመሰረተ የ AI ትንታኔ ይሰጣል። የባለሙያ የህክምና ውሳኔን አይተካም። ሁልጊዜ የአካባቢ ክሊኒካዊ ፕሮቶኮሎችን ይከተሉ።",
+  "accept_disclaimer": "ተረድቻለሁ እና እስማማለሁ",
+  "offline_mode": "ከበይነመረብ ውጭ በመስራት ላይ። ሲገናኝ ጥያቄዎች ይላካሉ።"
+}
