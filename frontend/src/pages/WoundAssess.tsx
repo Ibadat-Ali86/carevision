@@ -73,13 +73,18 @@ export default function WoundAssess() {
   };
 
   const handleGenerateReferral = (result: WoundAssessResult) => {
-    // Navigate to Referral page with pre-filled state
+    // Map WoundAssess output → backend ReferralRequest contract:
+    //   severity           → urgency         (same numeric scale 1–5)
+    //   wound_type         → patient_summary (descriptive prefix for CHW context)
+    //   severity_rationale → clinical_reason
+    //   recommended_action → facility_type_needed
     navigate('/referral', {
       state: {
-        severity: result.severity,
-        woundType: result.wound_type,
-        severityRationale: result.severity_rationale,
-        recommendedAction: result.recommended_action,
+        // These keys mirror ReferralCard.tsx ReferralState interface
+        urgency: result.severity,
+        patientSummary: `Wound: ${result.wound_type}`,
+        clinicalReason: result.severity_rationale,
+        facilityTypeNeeded: result.recommended_action,
       },
     });
   };

@@ -149,16 +149,32 @@ export interface ProtocolResponse {
 // Referral Card Types
 // ---------------------------------------------------------------------------
 
+/**
+ * ReferralRequest — must exactly mirror backend app/schemas/referral.py ReferralRequest.
+ * Field mapping from WoundAssess output:
+ *   severity           → urgency
+ *   severity_rationale → clinical_reason
+ *   recommended_action → facility_type_needed
+ *   wound_type         → patient_summary (prefixed for clarity)
+ */
 export interface ReferralRequest {
-  severity: SeverityLevel;
-  wound_type: string;
-  severity_rationale: string;
-  recommended_action: string;
-  language: string;
+  patient_summary: string;       // e.g. "Wound: Laceration — <rationale excerpt>"
+  urgency: SeverityLevel;        // 1–5, maps to URGENCY_LABELS on backend
+  clinical_reason: string;       // severity_rationale from WoundAssess
+  facility_type_needed: string;  // recommended_action from WoundAssess
+  chw_name?: string;             // optional, defaults to "CHW" on backend
+  chw_location?: string;         // optional
 }
 
+/** ReferralResponse — mirrors backend app/schemas/referral.py ReferralCard */
 export interface ReferralResponse {
-  referral_text: string;
-  whatsapp_message: string;
-  sms_message: string;
+  urgency_label: string;         // e.g. "Urgent"
+  urgency_color: string;         // hex color e.g. "#D64045"
+  patient_summary: string;
+  clinical_reason: string;
+  facility_type_needed: string;
+  referring_chw: string;
+  whatsapp_message: string;      // pre-built wa.me deep link (already URL-encoded)
+  sms_message: string;           // single-line SMS text (<= 160 chars)
+  disclaimer: string;
 }
