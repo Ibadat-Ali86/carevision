@@ -1,0 +1,84 @@
+# ════════════════════════════════════════════════════════════════════
+#  CareVision — .gitignore
+#  Scope: Full-stack monorepo (FastAPI backend + React/Vite frontend)
+#  NEVER commit: .env files, secrets, compiled artifacts, local DBs
+# ════════════════════════════════════════════════════════════════════
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# ── Virtual Environments ───────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+
+# ── Secrets & Environment Files (CRITICAL — must never be committed)
+backend/.env
+backend/.env.local
+backend/.env.*.local
+carevision/backend/.env
+carevision/backend/.env.local
+carevision/frontend/.env
+carevision/frontend/.env.local
+carevision/frontend/.env.*.local
+*.env
+!*.env.example
+
+# ── Databases & Local State ─────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+instance/
+.python-version
+
+# ── Node / Frontend ─────────────────────────────────────────────────
+node_modules/
+carevision/frontend/node_modules/
+carevision/frontend/dist/
+carevision/frontend/.vite/
+carevision/frontend/coverage/
+
+# ── Build Outputs ────────────────────────────────────────────────────
+dist/
+*.tsbuildinfo
+
+# ── IDEs & Editors ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Operating System ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Test / Raw Data (may contain PII / HIPAA-sensitive images) ──────
+test_images/raw_*
+test_images/*.heic
+test_images/*.HEIC
+
+# ── Observability / Logs ─────────────────────────────────────────────
+*.log
+logs/
+
+# ── Miscellaneous ────────────────────────────────────────────────────
+fix/
+summary_chat.md
+github_ds_publishing_guide.md
+summary_chat.md
+github_ds_publishing_guide.md
+summary_chat.md

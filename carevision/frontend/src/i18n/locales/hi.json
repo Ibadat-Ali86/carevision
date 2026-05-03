@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "आरडीटी विश्लेषण",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "घाव का आकलन",
+  "doc_reader_title": "दस्तावेज़ रीडर",
+  "protocol_title": "प्रोटोकॉल सहायक",
+  "referral_title": "रेफ़रल",
+  "disclaimer_text": "CareVision केवल सूचनात्मक उद्देश्यों के लिए AI-सहायता प्राप्त विश्लेषण प्रदान करता है। यह पेशेवर चिकित्सा निर्णय का विकल्प नहीं है। हमेशा स्थानीय नैदानिक ​​प्रोटोकॉल का पालन करें।",
+  "accept_disclaimer": "मैं समझता हूँ और सहमत हूँ",
+  "offline_mode": "ऑफ़लाइन काम कर रहे हैं। कनेक्ट होने पर अनुरोध सिंक हो जाएंगे।"
+}

@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Binciken RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Duba Rauni",
+  "doc_reader_title": "Mai Karanta Takardu",
+  "protocol_title": "Mataimakin Yarjejeniya",
+  "referral_title": "Turawa",
+  "disclaimer_text": "CareVision yana ba da binciken AI don dalilan bayanai kawai. BAZAI maye gurbin hukuncin likita na kwararru ba. Koyaushe ku bi ka'idojin asibiti na gida.",
+  "accept_disclaimer": "Na fahimta kuma na yarda",
+  "offline_mode": "Aiki ba tare da intanet ba. Za a aika bayanai idan an jona."
+}

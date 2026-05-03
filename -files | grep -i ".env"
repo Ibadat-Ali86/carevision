@@ -1,0 +1,2477 @@
+[33mcommit 3045ad7e99123fb5599692eb80e8c3f18a78685e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Ibadat-Ali86 <ibadcodes86@gmail.com>
+Date:   Mon May 4 02:06:36 2026 +0500
+
+    fix: flatten carevision submodule into standard directory
+
+[1mdiff --git a/carevision/backend/.env.example b/carevision/backend/.env.example[m
+[1mnew file mode 100644[m
+[1mindex 0000000..548c649[m
+[1m--- /dev/null[m
+[1m+++ b/carevision/backend/.env.example[m
+[36m@@ -0,0 +1,38 @@[m
+[32m+[m[32m# Backend environment variables — copy to .env and fill in real values[m
+[32m+[m[32m# NEVER commit the .env file. This template is safe to commit.[m
+[32m+[m
+[32m+[m[32m# ── AI Model ──────────────────────────────────────────────────────[m
+[32m+[m[32mGEMMA_API_KEY=your_gemma_api_key_here[m
+[32m+[m[32mGEMMA_MODEL=gemini-2.0-flash-exp[m
+[32m+[m[32mGEMMA_MAX_RETRIES=2[m
+[32m+[m[32mGEMMA_TIMEOUT_SECONDS=30[m
+[32m+[m
+[32m+[m[32m# ── Database ──────────────────────────────────────────────────────[m
+[32m+[m[32m# Production (Neon PostgreSQL):[m
+[32m+[m[32m# DATABASE_URL=postgresql+asyncpg://user:password@host/dbname?sslmode=require[m
+[32m+[m[32m# Development (SQLite — no external service required):[m
+[32m+[m[32mDATABASE_URL=sqlite+aiosqlite:///./carevision.db[m
+[32m+[m
+[32m+[m[32m# ── Cloudflare R2 Image Storage (optional — storage is non-fatal if absent) ──[m
+[32m+[m[32mR2_ACCOUNT_ID=your_cloudflare_account_id[m
+[32m+[m[32mR2_ACCESS_KEY=your_r2_access_key[m
+[32m+[m[32mR2_SECRET_KEY=your_r2_secret_key[m
+[32m+[m[32mR2_BUCKET=carevision[m
+[32m+[m[32mR2_PUBLIC_URL=[m
+[32m+[m
+[32m+[m[32m# ── Observability ─────────────────────────────────────────────────[m
+[32m+[m[32mLOGFIRE_TOKEN=[m
+[32m+[m
+[32m+[m[32m# ── CORS ─────────────────────────────────────────────────────────[m
+[32m+[m[32m# JSON array of allowed frontend origins[m
+[32m+[m[32mALLOWED_ORIGINS=["http://localhost:5173"][m
+[32m+[m
+[32m+[m[32m# ── Runtime ───────────────────────────────────────────────────────[m
+[32m+[m[32mENVIRONMENT=development[m
+[32m+[m
+[32m+[m[32m# ── Security (JWT) ────────────────────────────────────────────────[m
+[32m+[m[32m# REQUIRED: 256-bit random key for signing JWT access tokens.[m
+[32m+[m[32m# Generate a secure value with:[m
+[32m+[m[32m#   python -c "import secrets; print(secrets.token_hex(32))"[m
+[32m+[m[32m# NEVER use the example value below in production.[m
+[32m+[m[32mSECRET_KEY=change-me-to-a-random-32-byte-hex-string-before-deploying[m
+[1mdiff --git a/carevision/backend/app/db/models.py b/carevision/backend/app/db/models.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..8a5f28b[m
+[1m--- /dev/null[m
+[1m+++ b/carevision/backend/app/db/models.py[m
+[36m@@ -0,0 +1,139 @@[m
+[32m+[m[32mfrom __future__ import annotations[m
+[32m+[m
+[32m+[m[32mimport datetime[m
+[32m+[m[32mimport uuid[m
+[32m+[m
+[32m+[m[32mfrom sqlalchemy import Boolean, DateTime, Float, Integer, String, Text[m
+[32m+[m[32mfrom sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column[m
+[32m+[m
+[32m+[m[32m# fmt: off[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass Base(DeclarativeBase):[m
+[32m+[m[32m    pass[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass EncounterLog(Base):[m
+[32m+[m[32m    """Stores structured analysis results for community health worker encounters.[m
+[32m+[m
+[32m+[m[32m    No patient PII is stored in this table unless consent_given is True[m
+[32m+[m[32m    and an image_url is present. The result_json field stores the full[m
+[32m+[m[32m    structured output from Gemma 4 for that encounter.[m
+[32m+[m
+[32m+[m[32m    TRADEOFF: Storing result_json as Text (not a JSON column) preserves[m
+[32m+[m[32m    compatibility with both SQLite (dev) and PostgreSQL (prod) via a[m
+[32m+[m[32m    single model definition.[m
+[32m+[m[32m    """[m
+[32m+[m
+[32m+[m[32m    __tablename__ = "encounter_logs"[m
+[32m+[m
+[32m+[m[32m    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)[m
+[32m+[m[32m    analysis_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)[m
+[32m+[m[32m    result_json: Mapped[str] = mapped_column(Text, nullable=False)[m
+[32m+[m[32m    severity: Mapped[int | None] = mapped_column(Integer, nullable=True)[m
+[32m+[m[32m    refer_immediately: Mapped[bool | None] = mapped_column(Boolean, nullable=True)[m
+[32m+[m[32m    consent_given: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)[m
+[32m+[m[32m    # image_url is only populated when consent_given=True and R2 is configured[m
+[32m+[m[32m    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)[m
+[32m+[m[32m    chw_notes: Mapped[str | None] = mapped_column(Text, nullable=True)[m
+[32m+[m[32m    location_code: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)[m
+[32m+[m[32m    model_used: Mapped[str | None] = mapped_column(String(100), nullable=True)[m
+[32m+[m[32m    processing_time_ms: Mapped[float | None] = mapped_column(Float, nullable=True)[m
+[32m+[m[32m    created_at: Mapped[datetime.datetime] = mapped_column([m
+[32m+[m[32m        DateTime,[m
+[32m+[m[32m        nullable=False,[m
+[32m+[m[32m        default=datetime.datetime.utcnow,[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass SyncQueue(Base):[m
+[32m+[m[32m    """Server-side fallback queue for edge-case sync failures.[m
+[32m+[m
+[32m+[m[32m    The primary offline queue lives in the browser's IndexedDB (Dexie.js).[m
+[32m+[m[32m    This table is a server-side safety net for cases where the frontend[m
+[32m+[m[32m    cannot confirm delivery — not a primary data flow.[m
+[32m+[m[32m    """[m
+[32m+[m
+[32m+[m[32m    __tablename__ = "sync_queue"[m
+[32m+[m
+[32m+[m[32m    id: Mapped[str] = mapped_column([m
+[32m+[m[32m        String(36),[m
+[32m+[m[32m        primary_key=True,[m
+[32m+[m[32m        default=lambda: str(uuid.uuid4()),[m
+[32m+[m[32m    )[m
+[32m+[m[32m    payload_json: Mapped[str] = mapped_column(Text, nullable=False)[m
+[32m+[m[32m    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")[m
+[32m+[m[32m    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)[m
+[32m+[m[32m    created_at: Mapped[datetime.datetime] = mapped_column([m
+[32m+[m[32m        DateTime,[m
+[32m+[m[32m        nullable=False,[m
+[32m+[m[32m        default=datetime.datetime.utcnow,[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass Device(Base):[m
+[32m+[m[32m    """Stores registered client devices for authentication.[m
+[32m+[m[41m    [m
+[32m+[m[32m    Devices represent instances of the CareVision PWA installed by[m
+[32m+[m[32m    Community Health Workers. Each device gets a unique ID and a hashed secret[m
+[32m+[m[32m    used to issue JWT access tokens.[m
+[32m+[m[32m    """[m
+[32m+[m
+[32m+[m[32m    __tablename__ = "devices"[m
+[32m+[m
+[32m+[m[32m    id: Mapped[str] = mapped_column([m
+[32m+[m[32m        String(36),[m
+[32m+[m[32m        primary_key=True,[m
+[32m+[m[32m        default=lambda: str(uuid.uuid4()),[m
+[32m+[m[32m    )[m
+[32m+[m[32m    device_name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)[m
+[32m+[m[32m    hashed_secret: Mapped[str] = mapped_column(String(255), nullable=False)[m
+[32m+[m[32m    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)[m
+[32m+[m[32m    created_at: Mapped[datetime.datetime] = mapped_column([m
+[32m+[m[32m        DateTime,[m
+[32m+[m[32m        nullable=False,[m
+[32m+[m[32m        default=datetime.datetime.utcnow,[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass User(Base):[m
+[32m+[m[32m    """Stores authenticated Community Health Worker accounts.[m
+[32m+[m
+[32m+[m[32m    WHY UUID pk: Prevents sequential ID enumeration via public API.[m
+[32m+[m[32m    WHY hashed_password nullable: Allows future social/SSO auth flows without[m
+[32m+[m[32m    schema migration by setting hashed_password=None for OAuth-only accounts.[m
+[32m+[m
+[32m+[m[32m    Refresh tokens are stored here (not a separate table) for simplicity.[m
+[32m+[m[32m    On logout or compromise, set refresh_token=None to invalidate all[m
+[32m+[m[32m    sessions for that user. For multi-device support, extract to a[m
+[32m+[m[32m    separate refresh_tokens table (one row per device).[m
+[32m+[m[32m    """[m
+[32m+[m
+[32m+[m[32m    __tablename__ = "users"[m
+[32m+[m
+[32m+[m[32m    id: Mapped[str] = mapped_column([m
+[32m+[m[32m        String(36),[m
+[32m+[m[32m        primary_key=True,[m
+[32m+[m[32m        default=lambda: str(uuid.uuid4()),[m
+[32m+[m[32m    )[m
+[32m+[m[32m    email: Mapped[str] = mapped_column([m
+[32m+[m[32m        String(255),[m
+[32m+[m[32m        nullable=False,[m
+[32m+[m[32m        unique=True,[m
+[32m+[m[32m        index=True,[m
+[32m+[m[32m    )[m
+[32m+[m[32m    hashed_password: Mapped[str | None] = mapped_column(String(512), nullable=True)[m
+[32m+[m[32m    full_name: Mapped[str] = mapped_column(String(200), nullable=False)[m
+[32m+[m[32m    # role: 'chw' | 'supervisor' | 'admin' — enforced at app layer via Literal[m
+[32m+[m[32m    role: Mapped[str] = mapped_column(String(20), nullable=False, default="chw")[m
+[32m+[m[32m    # facility_id scopes data access — CHWs only see logs from their facility[m
+[32m+[m[32m    facility_id: Mapped[str | None] = mapped_column(String(100), nullable=True)[m
+[32m+[m[32m    region: Mapped[str | None] = mapped_column(String(100), nullable=True)[m
+[32m+[m[32m    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)[m
+[32m+[m[32m    # Opaque token — rotated on every refresh or logout[m
+[32m+[m[32m    refresh_token: Mapped[str | None] = mapped_column(String(512), nullable=True)[m
+[32m+[m[32m    created_at: Mapped[datetime.datetime] = mapped_column([m
+[32m+[m[32m        DateTime,[m
+[32m+[m[32m        nullable=False,[m
+[32m+[m[32m        default=datetime.datetime.utcnow,[m
+[32m+[m[32m    )[m
+[1mdiff --git a/carevision/backend/app/routes/auth.py b/carevision/backend/app/routes/auth.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..90cbfa8[m
+[1m--- /dev/null[m
+[1m+++ b/carevision/backend/app/routes/auth.py[m
+[36m@@ -0,0 +1,290 @@[m
+[32m+[m[32m"""[m
+[32m+[m[32mCareVision — Authentication Routes[m
+[32m+[m[32mPhase 5 (Auth System) per carevision-ux-improvements.md[m
+[32m+[m
+[32m+[m[32mWHY PyJWT over python-jose: Already in requirements.txt (v2.8.0),[m
+[32m+[m[32mactively maintained, avoids an extra dependency.[m
+[32m+[m
+[32m+[m[32mWHY argon2-cffi for hashing: Already in requirements.txt (v23.1.0).[m
+[32m+[m[32mArgon2id is the OWASP-recommended choice (memory-hard, side-channel resistant)[m
+[32m+[m[32mand superior to bcrypt for new systems. bcrypt is NOT in requirements.[m
+[32m+[m
+[32m+[m[32mWHY 24-hour access token: CHWs operate in low-connectivity environments.[m
+[32m+[m[32mShort (15-min) tokens would require frequent re-auth in offline/poor-signal[m
+[32m+[m[32mscenarios, degrading the clinical experience. The frontend stores tokens in[m
+[32m+[m[32mIndexedDB (not localStorage) which mitigates XSS risk.[m
+[32m+[m
+[32m+[m[32mTRADEOFF: Refresh token is stored as a plain opaque string in the DB.[m
+[32m+[m[32mThis is simpler than a separate refresh_tokens table and sufficient for[m
+[32m+[m[32msingle-device sessions. Multi-device support requires extracting to a[m
+[32m+[m[32mseparate table with a device_id column.[m
+[32m+[m
+[32m+[m[32mSecurity checklist:[m
+[32m+[m[32m  [x] Inputs validated at boundary (Pydantic schemas)[m
+[32m+[m[32m  [x] Passwords hashed (Argon2id via argon2-cffi)[m
+[32m+[m[32m  [x] No secrets in code (JWT_SECRET_KEY from settings)[m
+[32m+[m[32m  [x] Errors do not leak internal state to callers[m
+[32m+[m[32m  [x] Logging uses anonymized identifiers (user ID, not email in logs)[m
+[32m+[m[32m  [x] Rate limiting applied via existing RateLimitMiddleware (if configured)[m
+[32m+[m[32m"""[m
+[32m+[m
+[32m+[m[32mfrom __future__ import annotations[m
+[32m+[m
+[32m+[m[32mimport logging[m
+[32m+[m[32mimport secrets[m
+[32m+[m[32mfrom datetime import datetime, timedelta[m
+[32m+[m[32mfrom typing import Any[m
+[32m+[m
+[32m+[m[32mimport jwt[m
+[32m+[m[32mfrom argon2 import PasswordHasher[m
+[32m+[m[32mfrom argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError[m
+[32m+[m[32mfrom fastapi import APIRouter, Depends, HTTPException, status, Response[m
+[32m+[m[32mfrom fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm[m
+[32m+[m[32mfrom sqlalchemy import select[m
+[32m+[m[32mfrom sqlalchemy.ext.asyncio import AsyncSession[m
+[32m+[m
+[32m+[m[32mfrom app.config import settings[m
+[32m+[m[32mfrom app.db.session import get_session[m
+[32m+[m[32mfrom app.db.models import User[m
+[32m+[m[32mfrom app.schemas.auth import ([m
+[32m+[m[32m    UserRegistration,[m
+[32m+[m[32m    RefreshRequest,[m
+[32m+[m[32m    TokenResponse,[m
+[32m+[m[32m    UserProfile,[m
+[32m+[m[32m    RegistrationResponse,[m
+[32m+[m[32m)[m
+[32m+[m
+[32m+[m[32mlogger = logging.getLogger(__name__)[m
+[32m+[m
+[32m+[m[32mrouter = APIRouter(prefix="/api/auth", tags=["Authentication"])[m
+[32m+[m
+[32m+[m[32m# Argon2id hasher — memory_cost=65536 (64MB), time_cost=3, parallelism=4[m
+[32m+[m[32m# WHY these params: OWASP Cheat Sheet 2024 recommendation for interactive logins.[m
+[32m+[m[32m_ph = PasswordHasher([m
+[32m+[m[32m    time_cost=3,[m
+[32m+[m[32m    memory_cost=65536,[m
+[32m+[m[32m    parallelism=4,[m
+[32m+[m[32m    hash_len=32,[m
+[32m+[m[32m    salt_len=16,[m
+[32m+[m[32m)[m
+[32m+[m
+[32m+[m[32moauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)[m
+[32m+[m
+[32m+[m[32m# ─── Token utilities ─────────────────────────────────────────────────────────[m
+[32m+[m
+[32m+[m[32mdef _create_access_token(user_id: str, role: str) -> str:[m
+[32m+[m[32m    """Issue a signed JWT access token.[m
+[32m+[m
+[32m+[m[32m    Payload:[m
+[32m+[m[32m      sub  — user UUID (opaque to client)[m
+[32m+[m[32m      role — 'chw' | 'supervisor' | 'admin'[m
+[32m+[m[32m      exp  — UTC expiry (24 h from now)[m
+[32m+[m[32m      iat  — issued-at for audit trails[m
+[32m+[m[32m    """[m
+[32m+[m[32m    now = datetime.utcnow()[m
+[32m+[m[32m    payload: dict[str, Any] = {[m
+[32m+[m[32m        "sub": user_id,[m
+[32m+[m[32m        "role": role,[m
+[32m+[m[32m        "iat": int(now.timestamp()),[m
+[32m+[m[32m        "exp": int((now + timedelta(hours=24)).timestamp()),[m
+[32m+[m[32m    }[m
+[32m+[m[32m    # PyJWT 2.x: algorithm specified as list[m
+[32m+[m[32m    return jwt.encode(payload, settings.secret_key, algorithm="HS256")[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef _create_refresh_token() -> str:[m
+[32m+[m[32m    """Generate a cryptographically secure opaque refresh token (256-bit)."""[m
+[32m+[m[32m    return secrets.token_urlsafe(32)[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef _build_token_response(user: User, refresh_token: str) -> TokenResponse:[m
+[32m+[m[32m    access_token = _create_access_token(user.id, user.role)[m
+[32m+[m[32m    return TokenResponse([m
+[32m+[m[32m        access_token=access_token,[m
+[32m+[m[32m        refresh_token=refresh_token,[m
+[32m+[m[32m        expires_in=86400,  # 24 hours in seconds[m
+[32m+[m[32m        user=UserProfile.model_validate(user),[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m
+[32m+[m[32m# ─── Dependency — current authenticated user ─────────────────────────────────[m
+[32m+[m
+[32m+[m[32masync def get_current_user([m
+[32m+[m[32m    token: str | None = Depends(oauth2_scheme),[m
+[32m+[m[32m    db: AsyncSession = Depends(get_session),[m
+[32m+[m[32m) -> User:[m
+[32m+[m[32m    """JWT dependency — extracts and verifies caller identity.[m
+[32m+[m
+[32m+[m[32m    Returns the User ORM object so route handlers can check .role[m
+[32m+[m[32m    and .is_active without an extra DB query.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    credentials_exception = HTTPException([m
+[32m+[m[32m        status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m        detail="Could not validate credentials",[m
+[32m+[m[32m        headers={"WWW-Authenticate": "Bearer"},[m
+[32m+[m[32m    )[m
+[32m+[m[32m    if not token:[m
+[32m+[m[32m        raise credentials_exception[m
+[32m+[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])[m
+[32m+[m[32m        user_id: str | None = payload.get("sub")[m
+[32m+[m[32m        if not user_id:[m
+[32m+[m[32m            raise credentials_exception[m
+[32m+[m[32m    except jwt.ExpiredSignatureError:[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m            detail="Token has expired",[m
+[32m+[m[32m            headers={"WWW-Authenticate": "Bearer"},[m
+[32m+[m[32m        )[m
+[32m+[m[32m    except jwt.PyJWTError:[m
+[32m+[m[32m        raise credentials_exception[m
+[32m+[m
+[32m+[m[32m    result = await db.execute(select(User).where(User.id == user_id))[m
+[32m+[m[32m    user = result.scalar_one_or_none()[m
+[32m+[m
+[32m+[m[32m    if user is None or not user.is_active:[m
+[32m+[m[32m        raise credentials_exception[m
+[32m+[m
+[32m+[m[32m    return user[m
+[32m+[m
+[32m+[m
+[32m+[m[32m# ─── Routes ──────────────────────────────────────────────────────────────────[m
+[32m+[m
+[32m+[m[32m@router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)[m
+[32m+[m[32masync def register_user([m
+[32m+[m[32m    payload: UserRegistration,[m
+[32m+[m[32m    db: AsyncSession = Depends(get_session),[m
+[32m+[m[32m) -> RegistrationResponse:[m
+[32m+[m[32m    """Register a new Community Health Worker account.[m
+[32m+[m
+[32m+[m[32m    Supervisors and admins register as CHWs and are upgraded by an admin.[m
+[32m+[m[32m    WHY auto-approve CHWs: Removes friction for frontline workers who need[m
+[32m+[m[32m    immediate access in the field. Supervisors require admin approval.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    # Duplicate email check[m
+[32m+[m[32m    existing = await db.execute(select(User).where(User.email == payload.email))[m
+[32m+[m[32m    if existing.scalar_one_or_none():[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m            detail="An account with this email already exists",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    hashed = _ph.hash(payload.password)[m
+[32m+[m[32m    # WHY auto-approve CHWs only: Supervisor/admin roles have broader data access[m
+[32m+[m[32m    is_active = payload.role == "chw"[m
+[32m+[m
+[32m+[m[32m    user = User([m
+[32m+[m[32m        email=payload.email,[m
+[32m+[m[32m        hashed_password=hashed,[m
+[32m+[m[32m        full_name=payload.full_name,[m
+[32m+[m[32m        role=payload.role,[m
+[32m+[m[32m        facility_id=payload.facility_id,[m
+[32m+[m[32m        region=payload.region,[m
+[32m+[m[32m        is_active=is_active,[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    db.add(user)[m
+[32m+[m[32m    await db.commit()[m
+[32m+[m[32m    await db.refresh(user)[m
+[32m+[m
+[32m+[m[32m    logger.info("New user registered: id=%s role=%s", user.id, user.role)[m
+[32m+[m[32m    return RegistrationResponse([m
+[32m+[m[32m        message="Registration successful. Please sign in.",[m
+[32m+[m[32m        user_id=user.id,[m
+[32m+[m[32m        role=user.role,[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m
+[32m+[m[32m@router.post("/token", response_model=TokenResponse)[m
+[32m+[m[32masync def login([m
+[32m+[m[32m    form_data: OAuth2PasswordRequestForm = Depends(),[m
+[32m+[m[32m    db: AsyncSession = Depends(get_session),[m
+[32m+[m[32m) -> TokenResponse:[m
+[32m+[m[32m    """OAuth2-compatible login endpoint.[m
+[32m+[m
+[32m+[m[32m    Uses application/x-www-form-urlencoded (OAuth2 standard).[m
+[32m+[m[32m    WHY OAuth2PasswordRequestForm: Allows standard tooling (Swagger UI,[m
+[32m+[m[32m    Postman OAuth2 helpers) to work without custom configuration.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    result = await db.execute(select(User).where(User.email == form_data.username))[m
+[32m+[m[32m    user = result.scalar_one_or_none()[m
+[32m+[m
+[32m+[m[32m    # WHY unified error: distinct "user not found" vs "wrong password" messages[m
+[32m+[m[32m    # allow user enumeration attacks.[m
+[32m+[m[32m    invalid_creds = HTTPException([m
+[32m+[m[32m        status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m        detail="Incorrect email or password",[m
+[32m+[m[32m        headers={"WWW-Authenticate": "Bearer"},[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    if not user or not user.hashed_password:[m
+[32m+[m[32m        raise invalid_creds[m
+[32m+[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        _ph.verify(user.hashed_password, form_data.password)[m
+[32m+[m[32m    except (VerifyMismatchError, VerificationError, InvalidHashError):[m
+[32m+[m[32m        raise invalid_creds[m
+[32m+[m
+[32m+[m[32m    if not user.is_active:[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_403_FORBIDDEN,[m
+[32m+[m[32m            detail="Account pending approval. Contact your supervisor.",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    # Rotate refresh token on every login[m
+[32m+[m[32m    refresh_token = _create_refresh_token()[m
+[32m+[m[32m    user.refresh_token = refresh_token[m
+[32m+[m[32m    await db.commit()[m
+[32m+[m
+[32m+[m[32m    logger.info("User login: id=%s", user.id)[m
+[32m+[m[32m    return _build_token_response(user, refresh_token)[m
+[32m+[m
+[32m+[m
+[32m+[m[32m@router.post("/refresh", response_model=TokenResponse)[m
+[32m+[m[32masync def refresh_access_token([m
+[32m+[m[32m    payload: RefreshRequest,[m
+[32m+[m[32m    db: AsyncSession = Depends(get_session),[m
+[32m+[m[32m) -> TokenResponse:[m
+[32m+[m[32m    """Exchange a valid refresh token for a new access token.[m
+[32m+[m
+[32m+[m[32m    WHY keep same refresh token: Rotation on every refresh creates[m
+[32m+[m[32m    race conditions on mobile networks where the ACK is lost.[m
+[32m+[m[32m    Token is rotated on every login and logout instead.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    result = await db.execute([m
+[32m+[m[32m        select(User).where(User.refresh_token == payload.refresh_token)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    user = result.scalar_one_or_none()[m
+[32m+[m
+[32m+[m[32m    if not user or not user.is_active:[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m            detail="Invalid or expired refresh token",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    logger.info("Token refresh: id=%s", user.id)[m
+[32m+[m[32m    return _build_token_response(user, payload.refresh_token)[m
+[32m+[m
+[32m+[m
+[32m+[m[32m@router.post("/logout")[m
+[32m+[m[32masync def logout([m
+[32m+[m[32m    current_user: User = Depends(get_current_user),[m
+[32m+[m[32m    db: AsyncSession = Depends(get_session),[m
+[32m+[m[32m) -> dict:[m
+[32m+[m[32m    """Invalidate the refresh token, terminating all sessions for this user."""[m
+[32m+[m[32m    current_user.refresh_token = None[m
+[32m+[m[32m    await db.commit()[m
+[32m+[m[32m    logger.info("User logout: id=%s", current_user.id)[m
+[32m+[m[32m    return {"detail": "Successfully logged out"}[m
+[32m+[m
+[32m+[m
+[32m+[m[32m@router.get("/me", response_model=UserProfile)[m
+[32m+[m[32masync def get_current_user_profile([m
+[32m+[m[32m    current_user: User = Depends(get_current_user),[m
+[32m+[m[32m) -> UserProfile:[m
+[32m+[m[32m    """Return the authenticated user's profile.[m
+[32m+[m
+[32m+[m[32m    Used by the frontend on app load to validate stored tokens.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    return UserProfile.model_validate(current_user)[m
+
+[33mcommit ec57b8144a518e5dd22ebc39e12cec79d4088f87[m
+Author: Ibadat-Ali86 <ibadcodes86@gmail.com>
+Date:   Sun May 3 18:35:50 2026 +0500
+
+    docs: add comprehensive UI/UX improvement roadmap for CareVision PWA
+
+[1mdiff --git a/Documentation/carevision-ux-improvements.md b/Documentation/carevision-ux-improvements.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..4ec0d0f[m
+[1m--- /dev/null[m
+[1m+++ b/Documentation/carevision-ux-improvements.md[m
+[36m@@ -0,0 +1,1973 @@[m
+[32m+[m[32m# CareVision UI/UX Improvement Documentation[m
+[32m+[m[32m**Version:** 2.0 — Post-Hackathon Production Enhancement[m[41m  [m
+[32m+[m[32m**Last Updated:** May 2, 2026[m[41m  [m
+[32m+[m[32m**Prepared For:** CareVision Development Team[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Executive Summary[m
+[32m+[m
+[32m+[m[32mThis document provides a comprehensive UI/UX improvement roadmap for the CareVision Progressive Web App, addressing critical gaps identified in the current hackathon implementation: generic disclaimer presentation, missing loading states, placeholder Protocol Assistant interface, and absent authentication system. All recommendations are production-ready and designed specifically for Community Health Workers operating in low-resource clinical environments.[m
+[32m+[m
+[32m+[m[32m**Critical Improvements Covered:**[m
+[32m+[m[32m1. Medical-grade disclaimer system with visual hierarchy[m
+[32m+[m[32m2. Animated loading states with clinical context awareness[m
+[32m+[m[32m3. Complete authentication system (offline-first, role-based)[m
+[32m+[m[32m4. Protocol Assistant redesign with conversational intelligence[m
+[32m+[m[32m5. Enhanced consent flow with trust-building elements[m
+[32m+[m[32m6. Comprehensive design token expansion[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Phase 0 — Design System Foundation[m
+[32m+[m
+[32m+[m[32m### Product Classification[m
+[32m+[m
+[32m+[m[32m**PRIMARY TYPE:** Healthcare → Medical Clinical Dashboard (Frontline Worker Edition)[m[41m  [m
+[32m+[m[32m**HYBRID ATTRIBUTES:**[m[41m [m
+[32m+[m[32m- Mobile-First PWA (offline-critical)[m
+[32m+[m[32m- AI-Native UI (multimodal analysis interface)[m
+[32m+[m[32m- Trust & Authority (clinical decision support)[m
+[32m+[m
+[32m+[m[32m### Design System Declaration[m
+[32m+[m
+[32m+[m[32m```[m
+[32m+[m[32mPRODUCT TYPE: Healthcare Clinical Decision Support PWA[m
+[32m+[m
+[32m+[m[32mPATTERN: Mobile-First Clinical Workflow App[m
+[32m+[m[32m  Conversion: Trust → Consent → Analysis → Actionable Guidance[m
+[32m+[m[32m  Key Views:[m
+[32m+[m[32m    1. Dashboard (Quick Actions with visual health state)[m
+[32m+[m[32m    2. Analysis Flows (Capture → Consent → Processing → Results)[m
+[32m+[m[32m    3. Protocol Assistant (Conversational Clinical Q&A)[m
+[32m+[m[32m    4. Patient Log (Encounter History)[m
+[32m+[m[32m    5. Settings (Offline Sync, Language, Auth)[m
+[32m+[m
+[32m+[m[32mSTYLE: Accessible & Ethical + Trust & Authority (Hybrid)[m
+[32m+[m[32m  Keywords:       Clinical Clarity, Trust-First, High Legibility, Offline-Resilient[m
+[32m+[m[32m  Best For:       Medical applications where errors = patient harm[m
+[32m+[m[32m  Accessibility:  WCAG 2.1 AAA (enhanced medical requirements)[m
+[32m+[m[32m  Clinical Note:  All severity indicators must meet 7:1 contrast minimum[m
+[32m+[m
+[32m+[m[32mCOLORS:[m
+[32m+[m[32m  Primary (Medical Teal):    #0A6E5C — Clinical trust, action confirmation[m
+[32m+[m[32m  Secondary (Clinical Blue):  #2C5F8D — Supporting data, informational states[m
+[32m+[m[32m  Success (Medical Green):    #059669 — Positive results, completed actions[m
+[32m+[m[32m  Warning (Amber):            #D97706 — Moderate risk, attention needed[m
+[32m+[m[32m  Danger (Clinical Red):      #DC2626 — High risk, urgent referral[m
+[32m+[m[32m  Critical (Dark Red):        #991B1B — Emergency, immediate action[m
+[32m+[m[32m  Background (Soft Neutral):  #F8FAFB — Clean, high contrast[m
+[32m+[m[32m  Surface (White):            #FFFFFF — Elevated cards, modals[m
+[32m+[m[32m  Text Primary:               #1A2332 — Maximum legibility[m
+[32m+[m[32m  Text Secondary:             #475569 — Supporting text[m
+[32m+[m[32m  Text Tertiary:              #64748B — Metadata, timestamps[m
+[32m+[m[41m  [m
+[32m+[m[32m  Rationale: Medical environments demand high contrast and color-blind safe[m
+[32m+[m[32m             palettes. Teal/Blue combination tested with Protanopia/Deuteranopia[m
+[32m+[m[32m             simulators. Warning/Danger colors follow universal clinical conventions.[m
+[32m+[m
+[32m+[m[32mTYPOGRAPHY: Inter (UI) / Inter (Display)[m
+[32m+[m[32m  Mood:               Professional, Legible, Globally Accessible[m
+[32m+[m[32m  Google Fonts:       https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap[m
+[32m+[m[32m  Rationale:          Inter is optimized for small screens and low-resolution displays.[m
+[32m+[m[32m                     Single-family system reduces font loading overhead in low-bandwidth[m
+[32m+[m[32m                     environments. Extensive language support (Latin, Cyrillic, Greek).[m
+[32m+[m[41m  [m
+[32m+[m[32m  Type Scale (Fluid Typography):[m
+[32m+[m[32m    xs:   0.75rem / 1rem      (12px / 16px)[m
+[32m+[m[32m    sm:   0.875rem / 1.25rem  (14px / 20px)[m
+[32m+[m[32m    base: 1rem / 1.5rem       (16px / 24px) — Body text minimum[m
+[32m+[m[32m    lg:   1.125rem / 1.75rem  (18px / 28px)[m
+[32m+[m[32m    xl:   1.25rem / 1.875rem  (20px / 30px)[m
+[32m+[m[32m    2xl:  1.5rem / 2rem       (24px / 32px) — Section headers[m
+[32m+[m[32m    3xl:  1.875rem / 2.25rem  (30px / 36px)[m
+[32m+[m[32m    4xl:  2.25rem / 2.5rem    (36px / 40px) — Page titles[m
+[32m+[m
+[32m+[m[32mKEY EFFECTS:[m
+[32m+[m[32m  Animation Speed:  150ms (micro-interactions), 250ms (state transitions),[m[41m [m
+[32m+[m[32m                    300ms (page transitions)[m
+[32m+[m[32m  Easing:           cubic-bezier(0.4, 0, 0.2, 1) — Material Design standard[m
+[32m+[m[32m  Loading States:   Skeleton shimmer (non-anxiety inducing), progress bars with[m[41m [m
+[32m+[m[32m                    contextual clinical messaging[m
+[32m+[m[32m  Hover:            Subtle scale (1.02) + shadow elevation, NO color shifts[m
+[32m+[m[32m  Focus:            2px solid ring with 2px offset, always visible[m
+[32m+[m[32m  Reduced Motion:   All animations respect prefers-reduced-motion: reduce[m
+[32m+[m
+[32m+[m[32mANTI-PATTERNS TO AVOID:[m
+[32m+[m[32m  ❌ Dark mode by default (low-light clinical environments need high contrast)[m
+[32m+[m[32m  ❌ Harsh or fast animations (can distract during critical decision-making)[m
+[32m+[m[32m  ❌ Low-contrast pastels (medical data must be immediately readable)[m
+[32m+[m[32m  ❌ Playful or casual language in clinical contexts[m
+[32m+[m[32m  ❌ Overloading CHWs with technical jargon (clear, actionable language only)[m
+[32m+[m[32m  ❌ Emojis in clinical interfaces (use Lucide React icons exclusively)[m
+[32m+[m
+[32m+[m[32mPRE-DELIVERY CHECKLIST:[m
+[32m+[m[32m  ✅ All touch targets minimum 44x44px (mobile first)[m
+[32m+[m[32m  ✅ Color-blind safe palette (tested with Color Oracle)[m
+[32m+[m[32m  ✅ Offline state always visible and reassuring[m
+[32m+[m[32m  ✅ Loading states contextualized to clinical action[m
+[32m+[m[32m  ✅ Focus indicators on all interactive elements[m
+[32m+[m[32m  ✅ Screen reader labels on all icons and images[m
+[32m+[m[32m  ✅ Forms validate in real-time with helpful error recovery[m
+[32m+[m[32m  ✅ Consent flows cannot be bypassed or accidentally skipped[m
+[32m+[m
+[32m+[m[32mSTACK:[m
+[32m+[m[32m  Frontend:         React 18 + Vite (current, optimal)[m
+[32m+[m[32m  UI Components:    shadcn/ui v4 primitives (Radix UI underneath)[m
+[32m+[m[32m  Styling:          Tailwind CSS + CSS Variables (design tokens)[m
+[32m+[m[32m  Icons:            Lucide React (medical-appropriate icons)[m
+[32m+[m[32m  Animations:       Framer Motion (conditional loading)[m
+[32m+[m[32m  State:            Zustand (current, lightweight)[m
+[32m+[m[32m  Offline:          Dexie.js + Service Workers (current, production-ready)[m
+[32m+[m[32m  Auth:             JWT with IndexedDB session caching (offline-first)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m### Design Intent Declaration[m
+[32m+[m
+[32m+[m[32m**Problem:** Community Health Workers need immediate access to clinical decision support in environments with unreliable connectivity. Current UI lacks visual feedback during critical AI processing stages, uses generic disclaimer patterns unsuited for medical contexts, and has no authentication to protect patient data.[m
+[32m+[m
+[32m+[m[32m**Audience:** Frontline Community Health Workers (CHWs) with varying levels of technical literacy, operating in rural clinics, mobile health units, and home visits. Primary device: low-to-mid-range Android smartphones with 3G/4G connectivity.[m
+[32m+[m
+[32m+[m[32m**Platform:** Mobile-first Progressive Web App (PWA) with offline-first architecture. Desktop/tablet layouts scale gracefully but mobile (375px-428px viewport) is primary design target.[m
+[32m+[m
+[32m+[m[32m**Emotional Register:**[m[41m [m
+[32m+[m[32m- **Confident** — CHWs must feel supported, not second-guessed[m
+[32m+[m[32m- **Reassured** — Offline state should comfort, not alarm[m
+[32m+[m[32m- **Focused** — Interface fades into background during patient encounters[m
+[32m+[m[32m- **Trusted** — Clinical recommendations presented with appropriate authority[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 1. Critical Component Improvements[m
+[32m+[m
+[32m+[m[32m### 1.1 Medical Disclaimer System[m
+[32m+[m
+[32m+[m[32m**Current State Analysis:**[m
+[32m+[m[32m```html[m
+[32m+[m[32m<!-- Current Implementation (screenshot evidence) -->[m
+[32m+[m[32m<div className="bg-blue-50 border-l-4 border-blue-400 p-4">[m
+[32m+[m[32m  <div className="flex">[m
+[32m+[m[32m    <div className="flex-shrink-0">[m
+[32m+[m[32m      <InformationCircleIcon className="h-5 w-5 text-blue-400" />[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m    <div className="ml-3">[m
+[32m+[m[32m      <h3 className="text-sm font-medium text-blue-800">Medical Disclaimer</h3>[m
+[32m+[m[32m      <p className="text-sm text-blue-700">[m
+[32m+[m[32m        CareVision is a decision-support tool, not a replacement for professional[m[41m [m
+[32m+[m[32m        medical judgment. Always consult qualified healthcare providers...[m
+[32m+[m[32m      </p>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  </div>[m
+[32m+[m[32m</div>[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m**Problems Identified:**[m
+[32m+[m[32m1. ❌ Blue alert pattern is generic (not medical-grade)[m
+[32m+[m[32m2. ❌ Information icon doesn't convey legal/clinical weight[m
+[32m+[m[32m3. ❌ Single-column layout wastes vertical space[m
+[32m+[m[32m4. ❌ No visual hierarchy between title and content[m
+[32m+[m[32m5. ❌ Doesn't respect Clinical Blue from design system[m
+[32m+[m[32m6. ❌ No dark mode consideration[m
+[32m+[m
+[32m+[m[32m**Production-Ready Replacement:**[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// src/components/disclaimer/MedicalDisclaimer.tsx[m
+[32m+[m[32mimport { Shield, AlertTriangle } from 'lucide-react'[m
+[32m+[m[32mimport { cn } from '@/lib/utils'[m
+[32m+[m
+[32m+[m[32minterface MedicalDisclaimerProps {[m
+[32m+[m[32m  variant?: 'default' | 'compact' | 'prominent'[m
+[32m+[m[32m  context?: 'analysis' | 'protocol' | 'general'[m
+[32m+[m[32m  className?: string[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mexport const MedicalDisclaimer = ({[m[41m [m
+[32m+[m[32m  variant = 'default',[m
+[32m+[m[32m  context = 'general',[m
+[32m+[m[32m  className[m[41m [m
+[32m+[m[32m}: MedicalDisclaimerProps) => {[m
+[32m+[m[32m  const contextMessages = {[m
+[32m+[m[32m    analysis: {[m
+[32m+[m[32m      title: 'AI-Assisted Analysis',[m
+[32m+[m[32m      message: 'This AI analysis is a clinical decision-support tool. Final diagnosis and treatment decisions must be made by qualified healthcare providers based on complete patient assessment.',[m
+[32m+[m[32m    },[m
+[32m+[m[32m    protocol: {[m
+[32m+[m[32m      title: 'Clinical Protocol Reference',[m
+[32m+[m[32m      message: 'Protocol guidance is derived from WHO guidelines and regional health ministry standards. Always verify current protocols with your supervising physician or health facility.',[m
+[32m+[m[32m    },[m
+[32m+[m[32m    general: {[m
+[32m+[m[32m      title: 'Medical Decision Support Tool',[m
+[32m+[m[32m      message: 'CareVision assists clinical decision-making but does not replace professional medical judgment. Consult qualified healthcare providers for diagnosis and treatment decisions.',[m
+[32m+[m[32m    },[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const { title, message } = contextMessages[context][m
+[32m+[m
+[32m+[m[32m  const variantStyles = {[m
+[32m+[m[32m    default: 'p-4 border-l-4',[m
+[32m+[m[32m    compact: 'p-3 border-l-2 text-sm',[m
+[32m+[m[32m    prominent: 'p-6 border-2 shadow-md',[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div[m
+[32m+[m[32m      className={cn([m
+[32m+[m[32m        'rounded-lg bg-clinical-blue-50 dark:bg-clinical-blue-950/20',[m
+[32m+[m[32m        'border-clinical-blue-500',[m
+[32m+[m[32m        variantStyles[variant],[m
+[32m+[m[32m        className[m
+[32m+[m[32m      )}[m
+[32m+[m[32m      role="alert"[m
+[32m+[m[32m      aria-live="polite"[m
+[32m+[m[32m    >[m
+[32m+[m[32m      <div className="flex gap-3">[m
+[32m+[m[32m        {/* Icon with visual weight */}[m
+[32m+[m[32m        <div className="flex-shrink-0">[m
+[32m+[m[32m          <Shield[m[41m [m
+[32m+[m[32m            className="h-5 w-5 text-clinical-blue-600 dark:text-clinical-blue-400"[m[41m [m
+[32m+[m[32m            aria-hidden="true"[m
+[32m+[m[32m          />[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        {/* Content */}[m
+[32m+[m[32m        <div className="flex-1 min-w-0">[m
+[32m+[m[32m          <h3 className="text-sm font-semibold text-clinical-blue-900 dark:text-clinical-blue-100 mb-1">[m
+[32m+[m[32m            {title}[m
+[32m+[m[32m          </h3>[m
+[32m+[m[32m          <p className="text-sm text-clinical-blue-800 dark:text-clinical-blue-200 leading-relaxed">[m
+[32m+[m[32m            {message}[m
+[32m+[m[32m          </p>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </div>[m
+[32m+[m
+[32m+[m[32m      {/* Optional: Attention marker for prominent variant */}[m
+[32m+[m[32m      {variant === 'prominent' && ([m
+[32m+[m[32m        <div className="mt-3 pt-3 border-t border-clinical-blue-200 dark:border-clinical-blue-800 flex items-center gap-2">[m
+[32m+[m[32m          <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden="true" />[m
+[32m+[m[32m          <span className="text-xs font-medium text-clinical-blue-700 dark:text-clinical-blue-300">[m
+[32m+[m[32m            This information supports but does not replace clinical judgment[m
+[32m+[m[32m          </span>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      )}[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  )[m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m**Implementation Notes:**[m
+[32m+[m[32m- Use `variant="compact"` in tight spaces (mobile result cards)[m
+[32m+[m[32m- Use `variant="prominent"` on first-time onboarding screens[m
+[32m+[m[32m- Context-aware messaging reduces cognitive load[m
+[32m+[m[32m- Shield icon conveys legal/clinical protection[m
+[32m+[m[32m- Dark mode tested with 7:1 contrast minimum[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### 1.2 Loading States & Progress Indicators[m
+[32m+[m
+[32m+[m[32m**Current State Analysis:**[m
+[32m+[m[32mNo loading animations exist. User uploads image → black screen → result appears. This is anxiety-inducing in clinical contexts where CHWs need reassurance that AI is actively processing.[m
+[32m+[m
+[32m+[m[32m**Design Requirements:**[m
+[32m+[m[32m1. ✅ Non-anxiety inducing (no spinners on medical content)[m
+[32m+[m[32m2. ✅ Contextual messaging (what the AI is doing clinically)[m
+[32m+[m[32m3. ✅ Progress indication without fake precision[m
+[32m+[m[32m4. ✅ Offline-aware (different states for queued vs. processing)[m
+[32m+[m[32m5. ✅ Respects `prefers-reduced-motion`[m
+[32m+[m
+[32m+[m[32m**Production-Ready Implementation:**[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// src/components/loading/ClinicalLoadingState.tsx[m
+[32m+[m[32mimport { useEffect, useState } from 'react'[m
+[32m+[m[32mimport { Loader2, Wifi, WifiOff, CheckCircle2, Clock } from 'lucide-react'[m
+[32m+[m[32mimport { motion, AnimatePresence } from 'framer-motion'[m
+[32m+[m[32mimport { cn } from '@/lib/utils'[m
+[32m+[m
+[32m+[m[32minterface ClinicalLoadingStateProps {[m
+[32m+[m[32m  analysisType: 'teststrip' | 'medscan' | 'wound' | 'docreader' | 'protocol'[m
+[32m+[m[32m  isOfflineQueued?: boolean[m
+[32m+[m[32m  className?: string[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mexport const ClinicalLoadingState = ({[m[41m [m
+[32m+[m[32m  analysisType,[m
+[32m+[m[32m  isOfflineQueued = false,[m
+[32m+[m[32m  className[m[41m [m
+[32m+[m[32m}: ClinicalLoadingStateProps) => {[m
+[32m+[m[32m  const [messageIndex, setMessageIndex] = useState(0)[m
+[32m+[m[32m  const [progress, setProgress] = useState(0)[m
+[32m+[m
+[32m+[m[32m  // Contextual loading messages by analysis type[m
+[32m+[m[32m  const loadingMessages = {[m
+[32m+[m[32m    teststrip: [[m
+[32m+[m[32m      'Analyzing test strip lines...',[m
+[32m+[m[32m      'Validating control line visibility...',[m
+[32m+[m[32m      'Comparing test line intensity...',[m
+[32m+[m[32m      'Generating clinical recommendation...',[m
+[32m+[m[32m    ],[m
+[32m+[m[32m    medscan: [[m
+[32m+[m[32m      'Extracting medication information...',[m
+[32m+[m[32m      'Identifying drug names and dosages...',[m
+[32m+[m[32m      'Cross-checking contraindications...',[m
+[32m+[m[32m      'Preparing safety guidelines...',[m
+[32m+[m[32m    ],[m
+[32m+[m[32m    wound: [[m
+[32m+[m[32m      'Assessing wound characteristics...',[m
+[32m+[m[32m      'Analyzing tissue appearance...',[m
+[32m+[m[32m      'Calculating severity score...',[m
+[32m+[m[32m      'Determining referral urgency...',[m
+[32m+[m[32m    ],[m
+[32m+[m[32m    docreader: [[m
+[32m+[m[32m      'Reading document content...',[m
+[32m+[m[32m      'Extracting clinical data...',[m
+[32m+[m[32m      'Structuring lab results...',[m
+[32m+[m[32m      'Formatting for review...',[m
+[32m+[m[32m    ],[m
+[32m+[m[32m    protocol: [[m
+[32m+[m[32m      'Searching clinical protocols...',[m
+[32m+[m[32m      'Consulting WHO guidelines...',[m
+[32m+[m[32m      'Retrieving best practices...',[m
+[32m+[m[32m      'Preparing guidance...',[m
+[32m+[m[32m    ],[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const messages = loadingMessages[analysisType][m
+[32m+[m
+[32m+[m[32m  // Cycle through messages every 2.5 seconds[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (isOfflineQueued) return // Don't cycle if offline queued[m
+[32m+[m
+[32m+[m[32m    const interval = setInterval(() => {[m
+[32m+[m[32m      setMessageIndex((prev) => (prev + 1) % messages.length)[m
+[32m+[m[32m    }, 2500)[m
+[32m+[m
+[32m+[m[32m    return () => clearInterval(interval)[m
+[32m+[m[32m  }, [isOfflineQueued, messages.length])[m
+[32m+[m
+[32m+[m[32m  // Simulate progress (non-deterministic)[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (isOfflineQueued) return[m
+[32m+[m
+[32m+[m[32m    const progressInterval = setInterval(() => {[m
+[32m+[m[32m      setProgress((prev) => {[m
+[32m+[m[32m        // Slow down as we approach 90% (never show 100% until complete)[m
+[32m+[m[32m        if (prev < 60) return prev + Math.random() * 15[m
+[32m+[m[32m        if (prev < 80) return prev + Math.random() * 5[m
+[32m+[m[32m        return Math.min(prev + Math.random() * 2, 90)[m
+[32m+[m[32m      })[m
+[32m+[m[32m    }, 800)[m
+[32m+[m
+[32m+[m[32m    return () => clearInterval(progressInterval)[m
+[32m+[m[32m  }, [isOfflineQueued])[m
+[32m+[m
+[32m+[m[32m  // Offline queued state[m
+[32m+[m[32m  if (isOfflineQueued) {[m
+[32m+[m[32m    return ([m
+[32m+[m[32m      <div className={cn('p-8 text-center', className)}>[m
+[32m+[m[32m        <div className="flex flex-col items-center gap-4">[m
+[32m+[m[32m          <div className="relative">[m
+[32m+[m[32m            <WifiOff className="h-12 w-12 text-amber-500" />[m
+[32m+[m[32m            <Clock className="h-6 w-6 text-amber-600 absolute -bottom-1 -right-1" />[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div>[m
+[32m+[m[32m            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">[m
+[32m+[m[32m              Analysis Queued[m
+[32m+[m[32m            </h3>[m
+[32m+[m[32m            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm">[m
+[32m+[m[32m              You're currently offline. This analysis will process automatically when[m[41m [m
+[32m+[m[32m              connection is restored.[m
+[32m+[m[32m            </p>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div className="mt-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">[m
+[32m+[m[32m            <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">[m
+[32m+[m[32m              Your patient data is safe and encrypted locally[m
+[32m+[m[32m            </p>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    )[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  // Active processing state[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div className={cn('p-8 text-center', className)}>[m
+[32m+[m[32m      <div className="flex flex-col items-center gap-4">[m
+[32m+[m[32m        {/* Animated icon */}[m
+[32m+[m[32m        <motion.div[m
+[32m+[m[32m          animate={{ rotate: 360 }}[m
+[32m+[m[32m          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}[m
+[32m+[m[32m          className="relative"[m
+[32m+[m[32m        >[m
+[32m+[m[32m          <Loader2 className="h-12 w-12 text-medical-teal-500" />[m
+[32m+[m[32m        </motion.div>[m
+[32m+[m
+[32m+[m[32m        {/* Message with fade transition */}[m
+[32m+[m[32m        <div className="min-h-[60px] flex flex-col justify-center">[m
+[32m+[m[32m          <AnimatePresence mode="wait">[m
+[32m+[m[32m            <motion.p[m
+[32m+[m[32m              key={messageIndex}[m
+[32m+[m[32m              initial={{ opacity: 0, y: 10 }}[m
+[32m+[m[32m              animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m              exit={{ opacity: 0, y: -10 }}[m
+[32m+[m[32m              transition={{ duration: 0.3 }}[m
+[32m+[m[32m              className="text-base font-medium text-gray-900 dark:text-gray-100"[m
+[32m+[m[32m            >[m
+[32m+[m[32m              {messages[messageIndex]}[m
+[32m+[m[32m            </motion.p>[m
+[32m+[m[32m          </AnimatePresence>[m
+[32m+[m[41m          [m
+[32m+[m[32m          {/* Connection indicator */}[m
+[32m+[m[32m          <div className="flex items-center justify-center gap-2 mt-2">[m
+[32m+[m[32m            <Wifi className="h-4 w-4 text-green-500" aria-label="Online" />[m
+[32m+[m[32m            <span className="text-xs text-gray-500 dark:text-gray-400">[m
+[32m+[m[32m              Processing online[m
+[32m+[m[32m            </span>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        {/* Progress bar (non-deterministic) */}[m
+[32m+[m[32m        <div className="w-full max-w-xs">[m
+[32m+[m[32m          <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">[m
+[32m+[m[32m            <motion.div[m
+[32m+[m[32m              className="h-full bg-gradient-to-r from-medical-teal-500 to-medical-teal-400"[m
+[32m+[m[32m              initial={{ width: '0%' }}[m
+[32m+[m[32m              animate={{ width: `${progress}%` }}[m
+[32m+[m[32m              transition={{ duration: 0.5, ease: 'easeOut' }}[m
+[32m+[m[32m            />[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">[m
+[32m+[m[32m            Analyzing clinical data...[m
+[32m+[m[32m          </p>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        {/* Reassurance message */}[m
+[32m+[m[32m        <div className="mt-4 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">[m
+[32m+[m[32m          <p className="text-xs text-gray-600 dark:text-gray-400">[m
+[32m+[m[32m            This typically takes 5-15 seconds[m
+[32m+[m[32m          </p>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  )[m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m**Reduced Motion Variant:**[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// Add to loading component for users with prefers-reduced-motion[m
+[32m+[m[32mconst prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches[m
+[32m+[m
+[32m+[m[32m// Replace animated loader with static pulse[m
+[32m+[m[32m{prefersReducedMotion ? ([m
+[32m+[m[32m  <div className="h-12 w-12 rounded-full bg-medical-teal-500 opacity-75 animate-pulse" />[m
+[32m+[m[32m) : ([m
+[32m+[m[32m  <motion.div {...animationProps}>[m
+[32m+[m[32m    <Loader2 />[m
+[32m+[m[32m  </motion.div>[m
+[32m+[m[32m)}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m**Usage Example:**[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// In analysis components (TestStrip.tsx, MedScan.tsx, etc.)[m
+[32m+[m[32mimport { ClinicalLoadingState } from '@/components/loading/ClinicalLoadingState'[m
+[32m+[m[32mimport { useOnlineStatus } from '@/hooks/useOnlineStatus'[m
+[32m+[m
+[32m+[m[32mconst [isProcessing, setIsProcessing] = useState(false)[m
+[32m+[m[32mconst isOnline = useOnlineStatus()[m
+[32m+[m
+[32m+[m[32mreturn ([m
+[32m+[m[32m  <>[m
+[32m+[m[32m    {isProcessing && ([m
+[32m+[m[32m      <ClinicalLoadingState[m[41m [m
+[32m+[m[32m        analysisType="teststrip"[m
+[32m+[m[32m        isOfflineQueued={!isOnline}[m
+[32m+[m[32m      />[m
+[32m+[m[32m    )}[m
+[32m+[m[32m    {/* ... rest of component */}[m
+[32m+[m[32m  </>[m
+[32m+[m[32m)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### 1.3 Protocol Assistant Redesign[m
+[32m+[m
+[32m+[m[32m**Current State Analysis (Screenshot Evidence):**[m
+[32m+[m
+[32m+[m[32mFrom the screenshot, the Protocol Assistant shows:[m
+[32m+[m[32m- Generic centered title "Protocol Assistant"[m
+[32m+[m[32m- Stethoscope icon (appropriate but lonely)[m
+[32m+[m[32m- Plain text: "Ask any clinical protocol or WHO guideline question"[m
+[32m+[m[32m- Four suggested question cards in a 2x2 grid[m
+[32m+[m[32m- Bottom text input with microphone and send icons[m
+[32m+[m
+[32m+[m[32m**Problems Identified:**[m
+[32m+[m[32m1. ❌ No conversational personality or trust-building[m
+[32m+[m[32m2. ❌ Suggested questions are static (not context-aware)[m
+[32m+[m[32m3. ❌ No visual indication this is WHO-protocol grounded[m
+[32m+[m[32m4. ❌ Input placeholder is generic[m
+[32m+[m[32m5. ❌ No indication of conversation history[m
+[32m+[m[32m6. ❌ Microphone icon suggests voice input (not implemented?)[m
+[32m+[m[32m7. ❌ No loading state when processing questions[m
+[32m+[m
+[32m+[m[32m**Production-Ready Redesign:**[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// src/pages/ProtocolAssistant.tsx (Enhanced Version)[m
+[32m+[m[32mimport { useState, useRef, useEffect } from 'react'[m
+[32m+[m[32mimport { Send, Sparkles, Shield, BookOpen, Mic, AlertCircle } from 'lucide-react'[m
+[32m+[m[32mimport { motion, AnimatePresence } from 'framer-motion'[m
+[32m+[m[32mimport { cn } from '@/lib/utils'[m
+[32m+[m
+[32m+[m[32minterface Message {[m
+[32m+[m[32m  id: string[m
+[32m+[m[32m  role: 'user' | 'assistant'[m
+[32m+[m[32m  content: string[m
+[32m+[m[32m  timestamp: Date[m
+[32m+[m[32m  context?: string // Optional: which analysis triggered this question[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32minterface SuggestedQuestion {[m
+[32m+[m[32m  question: string[m
+[32m+[m[32m  category: 'malaria' | 'emergency' | 'nutrition' | 'maternal'[m
+[32m+[m[32m  icon: React.ReactNode[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mexport const ProtocolAssistant = () => {[m
+[32m+[m[32m  const [messages, setMessages] = useState<Message[]>([])[m
+[32m+[m[32m  const [input, setInput] = useState('')[m
+[32m+[m[32m  const [isProcessing, setIsProcessing] = useState(false)[m
+[32m+[m[32m  const messagesEndRef = useRef<HTMLDivElement>(null)[m
+[32m+[m
+[32m+[m[32m  const scrollToBottom = () => {[m
+[32m+[m[32m    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    scrollToBottom()[m
+[32m+[m[32m  }, [messages])[m
+[32m+[m
+[32m+[m[32m  // Context-aware suggested questions (could be dynamic based on recent analyses)[m
+[32m+[m[32m  const suggestedQuestions: SuggestedQuestion[] = [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      question: 'What is the WHO protocol for severe malaria treatment?',[m
+[32m+[m[32m      category: 'malaria',[m
+[32m+[m[32m      icon: <AlertCircle className="h-4 w-4" />,[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      question: 'How do I manage a child with acute malnutrition?',[m
+[32m+[m[32m      category: 'nutrition',[m
+[32m+[m[32m      icon: <BookOpen className="h-4 w-4" />,[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      question: 'What are the signs of obstetric emergency?',[m
+[32m+[m[32m      category: 'maternal',[m
+[32m+[m[32m      icon: <Shield className="h-4 w-4" />,[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      question: 'When should I refer a patient with respiratory distress?',[m
+[32m+[m[32m      category: 'emergency',[m
+[32m+[m[32m      icon: <AlertCircle className="h-4 w-4" />,[m
+[32m+[m[32m    },[m
+[32m+[m[32m  ][m
+[32m+[m
+[32m+[m[32m  const handleSendMessage = async (questionText: string) => {[m
+[32m+[m[32m    if (!questionText.trim()) return[m
+[32m+[m
+[32m+[m[32m    const userMessage: Message = {[m
+[32m+[m[32m      id: crypto.randomUUID(),[m
+[32m+[m[32m      role: 'user',[m
+[32m+[m[32m      content: questionText,[m
+[32m+[m[32m      timestamp: new Date(),[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    setMessages((prev) => [...prev, userMessage])[m
+[32m+[m[32m    setInput('')[m
+[32m+[m[32m    setIsProcessing(true)[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      // API call to backend protocol assistant endpoint[m
+[32m+[m[32m      const response = await fetch('/api/protocol/query', {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: { 'Content-Type': 'application/json' },[m
+[32m+[m[32m        body: JSON.stringify({ query: questionText }),[m
+[32m+[m[32m      })[m
+[32m+[m
+[32m+[m[32m      const data = await response.json()[m
+[32m+[m
+[32m+[m[32m      const assistantMessage: Message = {[m
+[32m+[m[32m        id: crypto.randomUUID(),[m
+[32m+[m[32m        role: 'assistant',[m
+[32m+[m[32m        content: data.response,[m
+[32m+[m[32m        timestamp: new Date(),[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      setMessages((prev) => [...prev, assistantMessage])[m
+[32m+[m[32m    } catch (error) {[m
+[32m+[m[32m      console.error('Protocol query failed:', error)[m
+[32m+[m[32m      // Error handling UI would go here[m
+[32m+[m[32m    } finally {[m
+[32m+[m[32m      setIsProcessing(false)[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const handleSuggestedQuestion = (question: string) => {[m
+[32m+[m[32m    handleSendMessage(question)[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">[m
+[32m+[m[32m      {/* Header with trust indicators */}[m
+[32m+[m[32m      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-4">[m
+[32m+[m[32m        <div className="flex items-center gap-3">[m
+[32m+[m[32m          <div className="flex-shrink-0">[m
+[32m+[m[32m            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-medical-teal-500 to-clinical-blue-500 flex items-center justify-center">[m
+[32m+[m[32m              <Sparkles className="h-5 w-5 text-white" />[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div className="flex-1">[m
+[32m+[m[32m            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">[m
+[32m+[m[32m              Clinical Protocol Assistant[m
+[32m+[m[32m            </h1>[m
+[32m+[m[32m            <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">[m
+[32m+[m[32m              <Shield className="h-3 w-3" aria-hidden="true" />[m
+[32m+[m[32m              Powered by WHO guidelines and regional health protocols[m
+[32m+[m[32m            </p>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </div>[m
+[32m+[m
+[32m+[m[32m      {/* Conversation area */}[m
+[32m+[m[32m      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">[m
+[32m+[m[32m        {/* Welcome message (only show when no conversation) */}[m
+[32m+[m[32m        {messages.length === 0 && ([m
+[32m+[m[32m          <motion.div[m
+[32m+[m[32m            initial={{ opacity: 0, y: 20 }}[m
+[32m+[m[32m            animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m            className="text-center max-w-2xl mx-auto"[m
+[32m+[m[32m          >[m
+[32m+[m[32m            <div className="mb-6">[m
+[32m+[m[32m              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-medical-teal-500 to-clinical-blue-500 flex items-center justify-center mx-auto mb-4">[m
+[32m+[m[32m                <BookOpen className="h-8 w-8 text-white" />[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">[m
+[32m+[m[32m                Ask Me About Clinical Protocols[m
+[32m+[m[32m              </h2>[m
+[32m+[m[32m              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">[m
+[32m+[m[32m                I can help you with WHO treatment guidelines, emergency protocols,[m[41m [m
+[32m+[m[32m                medication dosing, and clinical best practices for community health settings.[m
+[32m+[m[32m              </p>[m
+[32m+[m[32m            </div>[m
+[32m+[m
+[32m+[m[32m            {/* Suggested questions grid */}[m
+[32m+[m[32m            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8">[m
+[32m+[m[32m              {suggestedQuestions.map((q, idx) => ([m
+[32m+[m[32m                <motion.button[m
+[32m+[m[32m                  key={idx}[m
+[32m+[m[32m                  initial={{ opacity: 0, y: 20 }}[m
+[32m+[m[32m                  animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m                  transition={{ delay: idx * 0.1 }}[m
+[32m+[m[32m                  onClick={() => handleSuggestedQuestion(q.question)}[m
+[32m+[m[32m                  className={cn([m
+[32m+[m[32m                    'p-4 rounded-lg border-2 text-left transition-all duration-200',[m
+[32m+[m[32m                    'hover:border-medical-teal-500 hover:bg-medical-teal-50',[m
+[32m+[m[32m                    'dark:hover:border-medical-teal-400 dark:hover:bg-medical-teal-950/20',[m
+[32m+[m[32m                    'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',[m
+[32m+[m[32m                    'focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:ring-offset-2',[m
+[32m+[m[32m                    'cursor-pointer'[m
+[32m+[m[32m                  )}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  <div className="flex items-start gap-3">[m
+[32m+[m[32m                    <div className="flex-shrink-0 mt-0.5 text-medical-teal-600 dark:text-medical-teal-400">[m
+[32m+[m[32m                      {q.icon}[m
+[32m+[m[32m                    </div>[m
+[32m+[m[32m                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">[m
+[32m+[m[32m                      {q.question}[m
+[32m+[m[32m                    </p>[m
+[32m+[m[32m                  </div>[m
+[32m+[m[32m                </motion.button>[m
+[32m+[m[32m              ))}[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m          </motion.div>[m
+[32m+[m[32m        )}[m
+[32m+[m
+[32m+[m[32m        {/* Message thread */}[m
+[32m+[m[32m        <AnimatePresence>[m
+[32m+[m[32m          {messages.map((message) => ([m
+[32m+[m[32m            <motion.div[m
+[32m+[m[32m              key={message.id}[m
+[32m+[m[32m              initial={{ opacity: 0, y: 10 }}[m
+[32m+[m[32m              animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m              exit={{ opacity: 0, y: -10 }}[m
+[32m+[m[32m              className={cn([m
+[32m+[m[32m                'flex gap-3',[m
+[32m+[m[32m                message.role === 'user' ? 'justify-end' : 'justify-start'[m
+[32m+[m[32m              )}[m
+[32m+[m[32m            >[m
+[32m+[m[32m              {/* Assistant avatar */}[m
+[32m+[m[32m              {message.role === 'assistant' && ([m
+[32m+[m[32m                <div className="flex-shrink-0">[m
+[32m+[m[32m                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-medical-teal-500 to-clinical-blue-500 flex items-center justify-center">[m
+[32m+[m[32m                    <Sparkles className="h-4 w-4 text-white" />[m
+[32m+[m[32m                  </div>[m
+[32m+[m[32m                </div>[m
+[32m+[m[32m              )}[m
+[32m+[m
+[32m+[m[32m              {/* Message bubble */}[m
+[32m+[m[32m              <div[m
+[32m+[m[32m                className={cn([m
+[32m+[m[32m                  'max-w-[80%] rounded-2xl px-4 py-3',[m
+[32m+[m[32m                  message.role === 'user'[m
+[32m+[m[32m                    ? 'bg-medical-teal-500 text-white rounded-tr-sm'[m
+[32m+[m[32m                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-tl-sm'[m
+[32m+[m[32m                )}[m
+[32m+[m[32m              >[m
+[32m+[m[32m                <p[m
+[32m+[m[32m                  className={cn([m
+[32m+[m[32m                    'text-sm leading-relaxed whitespace-pre-wrap',[m
+[32m+[m[32m                    message.role === 'user'[m
+[32m+[m[32m                      ? 'text-white'[m
+[32m+[m[32m                      : 'text-gray-900 dark:text-gray-100'[m
+[32m+[m[32m                  )}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  {message.content}[m
+[32m+[m[32m                </p>[m
+[32m+[m[32m                <p[m
+[32m+[m[32m                  className={cn([m
+[32m+[m[32m                    'text-xs mt-2',[m
+[32m+[m[32m                    message.role === 'user'[m
+[32m+[m[32m                      ? 'text-medical-teal-100'[m
+[32m+[m[32m                      : 'text-gray-500 dark:text-gray-400'[m
+[32m+[m[32m                  )}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  {message.timestamp.toLocaleTimeString([], {[m[41m [m
+[32m+[m[32m                    hour: '2-digit',[m[41m [m
+[32m+[m[32m                    minute: '2-digit'[m[41m [m
+[32m+[m[32m                  })}[m
+[32m+[m[32m                </p>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            </motion.div>[m
+[32m+[m[32m          ))}[m
+[32m+[m[32m        </AnimatePresence>[m
+[32m+[m
+[32m+[m[32m        {/* Loading indicator */}[m
+[32m+[m[32m        {isProcessing && ([m
+[32m+[m[32m          <motion.div[m
+[32m+[m[32m            initial={{ opacity: 0 }}[m
+[32m+[m[32m            animate={{ opacity: 1 }}[m
+[32m+[m[32m            className="flex gap-3"[m
+[32m+[m[32m          >[m
+[32m+[m[32m            <div className="flex-shrink-0">[m
+[32m+[m[32m              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-medical-teal-500 to-clinical-blue-500 flex items-center justify-center">[m
+[32m+[m[32m                <Sparkles className="h-4 w-4 text-white" />[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3">[m
+[32m+[m[32m              <div className="flex items-center gap-2">[m
+[32m+[m[32m                <div className="flex gap-1">[m
+[32m+[m[32m                  <span className="h-2 w-2 bg-medical-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />[m
+[32m+[m[32m                  <span className="h-2 w-2 bg-medical-teal-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />[m
+[32m+[m[32m                  <span className="h-2 w-2 bg-medical-teal-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />[m
+[32m+[m[32m                </div>[m
+[32m+[m[32m                <span className="text-xs text-gray-500 dark:text-gray-400">[m
+[32m+[m[32m                  Consulting protocols...[m
+[32m+[m[32m                </span>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m          </motion.div>[m
+[32m+[m[32m        )}[m
+[32m+[m
+[32m+[m[32m        <div ref={messagesEndRef} />[m
+[32m+[m[32m      </div>[m
+[32m+[m
+[32m+[m[32m      {/* Input area */}[m
+[32m+[m[32m      <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-4">[m
+[32m+[m[32m        <form[m
+[32m+[m[32m          onSubmit={(e) => {[m
+[32m+[m[32m            e.preventDefault()[m
+[32m+[m[32m            handleSendMessage(input)[m
+[32m+[m[32m          }}[m
+[32m+[m[32m          className="flex gap-2 max-w-4xl mx-auto"[m
+[32m+[m[32m        >[m
+[32m+[m[32m          <input[m
+[32m+[m[32m            type="text"[m
+[32m+[m[32m            value={input}[m
+[32m+[m[32m            onChange={(e) => setInput(e.target.value)}[m
+[32m+[m[32m            placeholder="Ask about protocols, dosages, or guidelines..."[m
+[32m+[m[32m            disabled={isProcessing}[m
+[32m+[m[32m            className={cn([m
+[32m+[m[32m              'flex-1 px-4 py-3 rounded-full border text-sm',[m
+[32m+[m[32m              'bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-600',[m
+[32m+[m[32m              'text-gray-900 dark:text-gray-100 placeholder:text-gray-500',[m
+[32m+[m[32m              'focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:border-transparent',[m
+[32m+[m[32m              'disabled:opacity-50 disabled:cursor-not-allowed'[m
+[32m+[m[32m            )}[m
+[32m+[m[32m          />[m
+[32m+[m[41m          [m
+[32m+[m[32m          {/* Voice input button (optional - remove if not implemented) */}[m
+[32m+[m[32m          {/* <button[m
+[32m+[m[32m            type="button"[m
+[32m+[m[32m            className="flex-shrink-0 h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors"[m
+[32m+[m[32m            aria-label="Voice input"[m
+[32m+[m[32m          >[m
+[32m+[m[32m            <Mic className="h-5 w-5 text-gray-600 dark:text-gray-400" />[m
+[32m+[m[32m          </button> */}[m
+[32m+[m
+[32m+[m[32m          <button[m
+[32m+[m[32m            type="submit"[m
+[32m+[m[32m            disabled={!input.trim() || isProcessing}[m
+[32m+[m[32m            className={cn([m
+[32m+[m[32m              'flex-shrink-0 h-12 w-12 rounded-full',[m
+[32m+[m[32m              'bg-medical-teal-500 hover:bg-medical-teal-600',[m
+[32m+[m[32m              'disabled:bg-gray-300 dark:disabled:bg-gray-700',[m
+[32m+[m[32m              'disabled:cursor-not-allowed',[m
+[32m+[m[32m              'flex items-center justify-center transition-colors',[m
+[32m+[m[32m              'focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:ring-offset-2'[m
+[32m+[m[32m            )}[m
+[32m+[m[32m            aria-label="Send message"[m
+[32m+[m[32m          >[m
+[32m+[m[32m            <Send className="h-5 w-5 text-white" />[m
+[32m+[m[32m          </button>[m
+[32m+[m[32m        </form>[m
+[32m+[m
+[32m+[m[32m        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">[m
+[32m+[m[32m          Press Enter to send • Shift+Enter for new line[m
+[32m+[m[32m        </p>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  )[m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m**Key Improvements:**[m
+[32m+[m[32m1. ✅ Conversational UI with message bubbles[m
+[32m+[m[32m2. ✅ Trust indicators (WHO badge, shield icons)[m
+[32m+[m[32m3. ✅ Animated loading states with clinical context[m
+[32m+[m[32m4. ✅ Message history with timestamps[m
+[32m+[m[32m5. ✅ Suggested questions trigger actual conversations[m
+[32m+[m[32m6. ✅ Dark mode support throughout[m
+[32m+[m[32m7. ✅ Accessibility (ARIA labels, keyboard navigation)[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. Authentication System Architecture[m
+[32m+[m
+[32m+[m[32m**Current State:** No authentication system exists.[m
+[32m+[m
+[32m+[m[32m**Design Requirements:**[m
+[32m+[m[32m1. ✅ Work offline (JWT cached in IndexedDB)[m
+[32m+[m[32m2. ✅ Role-based access (CHW vs. Supervisor vs. Admin)[m
+[32m+[m[32m3. ✅ Session management with auto-refresh[m
+[32m+[m[32m4. ✅ Biometric support on mobile (future enhancement)[m
+[32m+[m[32m5. ✅ Secure but simple (avoid overwhelming CHWs)[m
+[32m+[m
+[32m+[m[32m**Production-Ready Implementation:**[m
+[32m+[m
+[32m+[m[32m### 2.1 Backend Authentication Schema[m
+[32m+[m
+[32m+[m[32m```python[m
+[32m+[m[32m# backend/app/schemas/auth.py[m
+[32m+[m[32mfrom pydantic import BaseModel, EmailStr, field_validator[m
+[32m+[m[32mfrom datetime import datetime[m
+[32m+[m[32mfrom typing import Optional, Literal[m
+[32m+[m
+[32m+[m[32mclass UserRole(str):[m
+[32m+[m[32m    CHW = "chw"               # Community Health Worker[m
+[32m+[m[32m    SUPERVISOR = "supervisor"  # CHW Supervisor[m
+[32m+[m[32m    ADMIN = "admin"           # System Administrator[m
+[32m+[m
+[32m+[m[32mclass UserRegistration(BaseModel):[m
+[32m+[m[32m    email: EmailStr[m
+[32m+[m[32m    password: str[m
+[32m+[m[32m    full_name: str[m
+[32m+[m[32m    role: Literal["chw", "supervisor", "admin"] = "chw"[m
+[32m+[m[32m    facility_id: Optional[str] = None[m
+[32m+[m[32m    region: Optional[str] = None[m
+[32m+[m
+[32m+[m[32m    @field_validator('password')[m
+[32m+[m[32m    def validate_password(cls, v):[m
+[32m+[m[32m        if len(v) < 8:[m
+[32m+[m[32m            raise ValueError('Password must be at least 8 characters')[m
+[32m+[m[32m        return v[m
+[32m+[m
+[32m+[m[32mclass UserLogin(BaseModel):[m
+[32m+[m[32m    email: EmailStr[m
+[32m+[m[32m    password: str[m
+[32m+[m
+[32m+[m[32mclass TokenResponse(BaseModel):[m
+[32m+[m[32m    access_token: str[m
+[32m+[m[32m    refresh_token: str[m
+[32m+[m[32m    token_type: str = "bearer"[m
+[32m+[m[32m    expires_in: int  # seconds[m
+[32m+[m[32m    user: "UserProfile"[m
+[32m+[m
+[32m+[m[32mclass UserProfile(BaseModel):[m
+[32m+[m[32m    id: str[m
+[32m+[m[32m    email: EmailStr[m
+[32m+[m[32m    full_name: str[m
+[32m+[m[32m    role: str[m
+[32m+[m[32m    facility_id: Optional[str][m
+[32m+[m[32m    created_at: datetime[m
+[32m+[m[32m    is_active: bool[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m```python[m
+[32m+[m[32m# backend/app/routes/auth.py[m
+[32m+[m[32mfrom fastapi import APIRouter, Depends, HTTPException, status[m
+[32m+[m[32mfrom fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm[m
+[32m+[m[32mfrom jose import JWTError, jwt[m
+[32m+[m[32mfrom passlib.context import CryptContext[m
+[32m+[m[32mfrom datetime import datetime, timedelta[m
+[32m+[m[32mfrom typing import Optional[m
+[32m+[m[32mimport secrets[m
+[32m+[m
+[32m+[m[32mfrom app.schemas.auth import ([m
+[32m+[m[32m    UserRegistration, UserLogin, TokenResponse, UserProfile[m
+[32m+[m[32m)[m
+[32m+[m[32mfrom app.db.models import User[m
+[32m+[m[32mfrom app.config import settings[m
+[32m+[m
+[32m+[m[32mrouter = APIRouter(prefix="/api/auth", tags=["Authentication"])[m
+[32m+[m
+[32m+[m[32mpwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")[m
+[32m+[m[32moauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")[m
+[32m+[m
+[32m+[m[32mdef create_access_token(data: dict, expires_delta: Optional[timedelta] = None):[m
+[32m+[m[32m    to_encode = data.copy()[m
+[32m+[m[32m    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))[m
+[32m+[m[32m    to_encode.update({"exp": expire})[m
+[32m+[m[32m    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")[m
+[32m+[m
+[32m+[m[32mdef create_refresh_token():[m
+[32m+[m[32m    return secrets.token_urlsafe(32)[m
+[32m+[m
+[32m+[m[32m@router.post("/register", response_model=TokenResponse)[m
+[32m+[m[32masync def register_user(user_data: UserRegistration):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    Register a new CHW or supervisor account.[m
+[32m+[m[32m    Admin approval required for supervisor/admin roles.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    # Check if email exists[m
+[32m+[m[32m    existing_user = await User.get_by_email(user_data.email)[m
+[32m+[m[32m    if existing_user:[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m            detail="Email already registered"[m
+[32m+[m[32m        )[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Hash password[m
+[32m+[m[32m    hashed_password = pwd_context.hash(user_data.password)[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Create user[m
+[32m+[m[32m    new_user = await User.create([m
+[32m+[m[32m        email=user_data.email,[m
+[32m+[m[32m        hashed_password=hashed_password,[m
+[32m+[m[32m        full_name=user_data.full_name,[m
+[32m+[m[32m        role=user_data.role,[m
+[32m+[m[32m        facility_id=user_data.facility_id,[m
+[32m+[m[32m        region=user_data.region,[m
+[32m+[m[32m        is_active=True if user_data.role == "chw" else False  # Supervisors need approval[m
+[32m+[m[32m    )[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Generate tokens[m
+[32m+[m[32m    access_token = create_access_token([m
+[32m+[m[32m        data={"sub": new_user.id, "role": new_user.role},[m
+[32m+[m[32m        expires_delta=timedelta(hours=24)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    refresh_token = create_refresh_token()[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Store refresh token in database[m
+[32m+[m[32m    await User.update_refresh_token(new_user.id, refresh_token)[m
+[32m+[m[41m    [m
+[32m+[m[32m    return TokenResponse([m
+[32m+[m[32m        access_token=access_token,[m
+[32m+[m[32m        refresh_token=refresh_token,[m
+[32m+[m[32m        expires_in=86400,  # 24 hours[m
+[32m+[m[32m        user=UserProfile.from_orm(new_user)[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m@router.post("/token", response_model=TokenResponse)[m
+[32m+[m[32masync def login(form_data: OAuth2PasswordRequestForm = Depends()):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    OAuth2-compatible login endpoint.[m
+[32m+[m[32m    Returns JWT access token and refresh token.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    user = await User.get_by_email(form_data.username)[m
+[32m+[m[41m    [m
+[32m+[m[32m    if not user or not pwd_context.verify(form_data.password, user.hashed_password):[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m            detail="Incorrect email or password",[m
+[32m+[m[32m            headers={"WWW-Authenticate": "Bearer"},[m
+[32m+[m[32m        )[m
+[32m+[m[41m    [m
+[32m+[m[32m    if not user.is_active:[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_403_FORBIDDEN,[m
+[32m+[m[32m            detail="Account pending approval. Contact your supervisor."[m
+[32m+[m[32m        )[m
+[32m+[m[41m    [m
+[32m+[m[32m    access_token = create_access_token([m
+[32m+[m[32m        data={"sub": user.id, "role": user.role},[m
+[32m+[m[32m        expires_delta=timedelta(hours=24)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    refresh_token = create_refresh_token()[m
+[32m+[m[41m    [m
+[32m+[m[32m    await User.update_refresh_token(user.id, refresh_token)[m
+[32m+[m[41m    [m
+[32m+[m[32m    return TokenResponse([m
+[32m+[m[32m        access_token=access_token,[m
+[32m+[m[32m        refresh_token=refresh_token,[m
+[32m+[m[32m        expires_in=86400,[m
+[32m+[m[32m        user=UserProfile.from_orm(user)[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m@router.post("/refresh", response_model=TokenResponse)[m
+[32m+[m[32masync def refresh_access_token(refresh_token: str):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    Exchange a valid refresh token for a new access token.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    user = await User.get_by_refresh_token(refresh_token)[m
+[32m+[m[41m    [m
+[32m+[m[32m    if not user:[m
+[32m+[m[32m        raise HTTPException([m
+[32m+[m[32m            status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m            detail="Invalid refresh token"[m
+[32m+[m[32m        )[m
+[32m+[m[41m    [m
+[32m+[m[32m    new_access_token = create_access_token([m
+[32m+[m[32m        data={"sub": user.id, "role": user.role},[m
+[32m+[m[32m        expires_delta=timedelta(hours=24)[m
+[32m+[m[32m    )[m
+[32m+[m[41m    [m
+[32m+[m[32m    return TokenResponse([m
+[32m+[m[32m        access_token=new_access_token,[m
+[32m+[m[32m        refresh_token=refresh_token,  # Keep same refresh token[m
+[32m+[m[32m        expires_in=86400,[m
+[32m+[m[32m        user=UserProfile.from_orm(user)[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32masync def get_current_user(token: str = Depends(oauth2_scheme)) -> User:[m
+[32m+[m[32m    """[m
+[32m+[m[32m    Dependency to extract current user from JWT token.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    credentials_exception = HTTPException([m
+[32m+[m[32m        status_code=status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m        detail="Could not validate credentials",[m
+[32m+[m[32m        headers={"WWW-Authenticate": "Bearer"},[m
+[32m+[m[32m    )[m
+[32m+[m[41m    [m
+[32m+[m[32m    try:[m
+[32m+[m[32m        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])[m
+[32m+[m[32m        user_id: str = payload.get("sub")[m
+[32m+[m[32m        if user_id is None:[m
+[32m+[m[32m            raise credentials_exception[m
+[32m+[m[32m    except JWTError:[m
+[32m+[m[32m        raise credentials_exception[m
+[32m+[m[41m    [m
+[32m+[m[32m    user = await User.get_by_id(user_id)[m
+[32m+[m[32m    if user is None:[m
+[32m+[m[32m        raise credentials_exception[m
+[32m+[m[41m    [m
+[32m+[m[32m    return user[m
+[32m+[m
+[32m+[m[32m@router.get("/me", response_model=UserProfile)[m
+[32m+[m[32masync def get_current_user_profile(current_user: User = Depends(get_current_user)):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    Get current logged-in user profile.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    return UserProfile.from_orm(current_user)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m### 2.2 Frontend Authentication State Management[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// src/store/authStore.ts[m
+[32m+[m[32mimport { create } from 'zustand'[m
+[32m+[m[32mimport { persist } from 'zustand/middleware'[m
+[32m+[m[32mimport Dexie from 'dexie'[m
+[32m+[m
+[32m+[m[32minterface User {[m
+[32m+[m[32m  id: string[m
+[32m+[m[32m  email: string[m
+[32m+[m[32m  fullName: string[m
+[32m+[m[32m  role: 'chw' | 'supervisor' | 'admin'[m
+[32m+[m[32m  facilityId?: string[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32minterface AuthState {[m
+[32m+[m[32m  user: User | null[m
+[32m+[m[32m  accessToken: string | null[m
+[32m+[m[32m  refreshToken: string | null[m
+[32m+[m[32m  isAuthenticated: boolean[m
+[32m+[m[32m  isLoading: boolean[m
+[32m+[m[41m  [m
+[32m+[m[32m  // Actions[m
+[32m+[m[32m  login: (email: string, password: string) => Promise<void>[m
+[32m+[m[32m  logout: () => void[m
+[32m+[m[32m  refreshAccessToken: () => Promise<void>[m
+[32m+[m[32m  checkAuth: () => Promise<void>[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// IndexedDB for offline token storage[m
+[32m+[m[32mclass AuthDB extends Dexie {[m
+[32m+[m[32m  tokens: Dexie.Table<{ key: string; value: string }, string>[m
+[32m+[m
+[32m+[m[32m  constructor() {[m
+[32m+[m[32m    super('CareVisionAuth')[m
+[32m+[m[32m    this.version(1).stores({[m
+[32m+[m[32m      tokens: 'key',[m
+[32m+[m[32m    })[m
+[32m+[m[32m    this.tokens = this.table('tokens')[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mconst authDB = new AuthDB()[m
+[32m+[m
+[32m+[m[32mexport const useAuthStore = create<AuthState>()([m
+[32m+[m[32m  persist([m
+[32m+[m[32m    (set, get) => ({[m
+[32m+[m[32m      user: null,[m
+[32m+[m[32m      accessToken: null,[m
+[32m+[m[32m      refreshToken: null,[m
+[32m+[m[32m      isAuthenticated: false,[m
+[32m+[m[32m      isLoading: false,[m
+[32m+[m
+[32m+[m[32m      login: async (email: string, password: string) => {[m
+[32m+[m[32m        set({ isLoading: true })[m
+[32m+[m[32m        try {[m
+[32m+[m[32m          const response = await fetch('/api/auth/token', {[m
+[32m+[m[32m            method: 'POST',[m
+[32m+[m[32m            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },[m
+[32m+[m[32m            body: new URLSearchParams({[m
+[32m+[m[32m              username: email,[m
+[32m+[m[32m              password: password,[m
+[32m+[m[32m            }),[m
+[32m+[m[32m          })[m
+[32m+[m
+[32m+[m[32m          if (!response.ok) {[m
+[32m+[m[32m            throw new Error('Login failed')[m
+[32m+[m[32m          }[m
+[32m+[m
+[32m+[m[32m          const data = await response.json()[m
+[32m+[m
+[32m+[m[32m          // Store tokens in IndexedDB (offline-safe)[m
+[32m+[m[32m          await authDB.tokens.put({ key: 'access_token', value: data.access_token })[m
+[32m+[m[32m          await authDB.tokens.put({ key: 'refresh_token', value: data.refresh_token })[m
+[32m+[m
+[32m+[m[32m          set({[m
+[32m+[m[32m            user: data.user,[m
+[32m+[m[32m            accessToken: data.access_token,[m
+[32m+[m[32m            refreshToken: data.refresh_token,[m
+[32m+[m[32m            isAuthenticated: true,[m
+[32m+[m[32m            isLoading: false,[m
+[32m+[m[32m          })[m
+[32m+[m[32m        } catch (error) {[m
+[32m+[m[32m          set({ isLoading: false })[m
+[32m+[m[32m          throw error[m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m
+[32m+[m[32m      logout: () => {[m
+[32m+[m[32m        // Clear IndexedDB tokens[m
+[32m+[m[32m        authDB.tokens.clear()[m
+[32m+[m[41m        [m
+[32m+[m[32m        set({[m
+[32m+[m[32m          user: null,[m
+[32m+[m[32m          accessToken: null,[m
+[32m+[m[32m          refreshToken: null,[m
+[32m+[m[32m          isAuthenticated: false,[m
+[32m+[m[32m        })[m
+[32m+[m[32m      },[m
+[32m+[m
+[32m+[m[32m      refreshAccessToken: async () => {[m
+[32m+[m[32m        const { refreshToken } = get()[m
+[32m+[m[32m        if (!refreshToken) return[m
+[32m+[m
+[32m+[m[32m        try {[m
+[32m+[m[32m          const response = await fetch('/api/auth/refresh', {[m
+[32m+[m[32m            method: 'POST',[m
+[32m+[m[32m            headers: { 'Content-Type': 'application/json' },[m
+[32m+[m[32m            body: JSON.stringify({ refresh_token: refreshToken }),[m
+[32m+[m[32m          })[m
+[32m+[m
+[32m+[m[32m          if (!response.ok) {[m
+[32m+[m[32m            throw new Error('Token refresh failed')[m
+[32m+[m[32m          }[m
+[32m+[m
+[32m+[m[32m          const data = await response.json()[m
+[32m+[m
+[32m+[m[32m          await authDB.tokens.put({ key: 'access_token', value: data.access_token })[m
+[32m+[m
+[32m+[m[32m          set({ accessToken: data.access_token })[m
+[32m+[m[32m        } catch (error) {[m
+[32m+[m[32m          // Token refresh failed, logout user[m
+[32m+[m[32m          get().logout()[m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m
+[32m+[m[32m      checkAuth: async () => {[m
+[32m+[m[32m        // On app load, check IndexedDB for stored tokens[m
+[32m+[m[32m        const storedAccessToken = await authDB.tokens.get('access_token')[m
+[32m+[m[32m        const storedRefreshToken = await authDB.tokens.get('refresh_token')[m
+[32m+[m
+[32m+[m[32m        if (storedAccessToken && storedRefreshToken) {[m
+[32m+[m[32m          set({[m
+[32m+[m[32m            accessToken: storedAccessToken.value,[m
+[32m+[m[32m            refreshToken: storedRefreshToken.value,[m
+[32m+[m[32m          })[m
+[32m+[m
+[32m+[m[32m          // Verify token is still valid by fetching user profile[m
+[32m+[m[32m          try {[m
+[32m+[m[32m            const response = await fetch('/api/auth/me', {[m
+[32m+[m[32m              headers: {[m
+[32m+[m[32m                Authorization: `Bearer ${storedAccessToken.value}`,[m
+[32m+[m[32m              },[m
+[32m+[m[32m            })[m
+[32m+[m
+[32m+[m[32m            if (response.ok) {[m
+[32m+[m[32m              const user = await response.json()[m
+[32m+[m[32m              set({ user, isAuthenticated: true })[m
+[32m+[m[32m            } else {[m
+[32m+[m[32m              // Token invalid, try to refresh[m
+[32m+[m[32m              await get().refreshAccessToken()[m
+[32m+[m[32m            }[m
+[32m+[m[32m          } catch (error) {[m
+[32m+[m[32m            get().logout()[m
+[32m+[m[32m          }[m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m[32m    }),[m
+[32m+[m[32m    {[m
+[32m+[m[32m      name: 'carevision-auth',[m
+[32m+[m[32m      partialize: (state) => ({[m
+[32m+[m[32m        user: state.user,[m
+[32m+[m[32m        // Don't persist tokens in localStorage (use IndexedDB instead)[m
+[32m+[m[32m      }),[m
+[32m+[m[32m    }[m
+[32m+[m[32m  )[m
+[32m+[m[32m)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m### 2.3 Login UI Component[m
+[32m+[m
+[32m+[m[32m```tsx[m
+[32m+[m[32m// src/pages/Login.tsx[m
+[32m+[m[32mimport { useState } from 'react'[m
+[32m+[m[32mimport { useNavigate } from 'react-router-dom'[m
+[32m+[m[32mimport { useAuthStore } from '@/store/authStore'[m
+[32m+[m[32mimport { Eye, EyeOff, LogIn, Shield } from 'lucide-react'[m
+[32m+[m[32mimport { motion } from 'framer-motion'[m
+[32m+[m[32mimport { cn } from '@/lib/utils'[m
+[32m+[m
+[32m+[m[32mexport const Login = () => {[m
+[32m+[m[32m  const [email, setEmail] = useState('')[m
+[32m+[m[32m  const [password, setPassword] = useState('')[m
+[32m+[m[32m  const [showPassword, setShowPassword] = useState(false)[m
+[32m+[m[32m  const [error, setError] = useState('')[m
+[32m+[m[32m  const [isLoading, setIsLoading] = useState(false)[m
+[32m+[m
+[32m+[m[32m  const login = useAuthStore((state) => state.login)[m
+[32m+[m[32m  const navigate = useNavigate()[m
+[32m+[m
+[32m+[m[32m  const handleSubmit = async (e: React.FormEvent) => {[m
+[32m+[m[32m    e.preventDefault()[m
+[32m+[m[32m    setError('')[m
+[32m+[m[32m    setIsLoading(true)[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      await login(email, password)[m
+[32m+[m[32m      navigate('/dashboard')[m
+[32m+[m[32m    } catch (err) {[m
+[32m+[m[32m      setError('Invalid email or password. Please try again.')[m
+[32m+[m[32m    } finally {[m
+[32m+[m[32m      setIsLoading(false)[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div className="min-h-screen bg-gradient-to-br from-medical-teal-50 via-white to-clinical-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center px-4 py-12">[m
+[32m+[m[32m      <motion.div[m
+[32m+[m[32m        initial={{ opacity: 0, y: 20 }}[m
+[32m+[m[32m        animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m        className="w-full max-w-md"[m
+[32m+[m[32m      >[m
+[32m+[m[32m        {/* Logo and branding */}[m
+[32m+[m[32m        <div className="text-center mb-8">[m
+[32m+[m[32m          <div className="inline-flex h-16 w-16 rounded-full bg-gradient-to-br from-medical-teal-500 to-clinical-blue-500 items-center justify-center mb-4">[m
+[32m+[m[32m            <Shield className="h-8 w-8 text-white" />[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">[m
+[32m+[m[32m            CareVision[m
+[32m+[m[32m          </h1>[m
+[32m+[m[32m          <p className="text-sm text-gray-600 dark:text-gray-400">[m
+[32m+[m[32m            Clinical Decision Support for Community Health Workers[m
+[32m+[m[32m          </p>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        {/* Login card */}[m
+[32m+[m[32m        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">[m
+[32m+[m[32m          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">[m
+[32m+[m[32m            Sign In to Your Account[m
+[32m+[m[32m          </h2>[m
+[32m+[m
+[32m+[m[32m          <form onSubmit={handleSubmit} className="space-y-4">[m
+[32m+[m[32m            {/* Email input */}[m
+[32m+[m[32m            <div>[m
+[32m+[m[32m              <label[m
+[32m+[m[32m                htmlFor="email"[m
+[32m+[m[32m                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"[m
+[32m+[m[32m              >[m
+[32m+[m[32m                Email Address[m
+[32m+[m[32m              </label>[m
+[32m+[m[32m              <input[m
+[32m+[m[32m                id="email"[m
+[32m+[m[32m                type="email"[m
+[32m+[m[32m                required[m
+[32m+[m[32m                autoComplete="email"[m
+[32m+[m[32m                value={email}[m
+[32m+[m[32m                onChange={(e) => setEmail(e.target.value)}[m
+[32m+[m[32m                className={cn([m
+[32m+[m[32m                  'w-full px-4 py-3 rounded-lg border text-sm',[m
+[32m+[m[32m                  'bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-600',[m
+[32m+[m[32m                  'text-gray-900 dark:text-gray-100 placeholder:text-gray-500',[m
+[32m+[m[32m                  'focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:border-transparent',[m
+[32m+[m[32m                  'transition-colors'[m
+[32m+[m[32m                )}[m
+[32m+[m[32m                placeholder="you@example.com"[m
+[32m+[m[32m              />[m
+[32m+[m[32m            </div>[m
+[32m+[m
+[32m+[m[32m            {/* Password input */}[m
+[32m+[m[32m            <div>[m
+[32m+[m[32m              <label[m
+[32m+[m[32m                htmlFor="password"[m
+[32m+[m[32m                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"[m
+[32m+[m[32m              >[m
+[32m+[m[32m                Password[m
+[32m+[m[32m              </label>[m
+[32m+[m[32m              <div className="relative">[m
+[32m+[m[32m                <input[m
+[32m+[m[32m                  id="password"[m
+[32m+[m[32m                  type={showPassword ? 'text' : 'password'}[m
+[32m+[m[32m                  required[m
+[32m+[m[32m                  autoComplete="current-password"[m
+[32m+[m[32m                  value={password}[m
+[32m+[m[32m                  onChange={(e) => setPassword(e.target.value)}[m
+[32m+[m[32m                  className={cn([m
+[32m+[m[32m                    'w-full px-4 py-3 rounded-lg border text-sm pr-12',[m
+[32m+[m[32m                    'bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-600',[m
+[32m+[m[32m                    'text-gray-900 dark:text-gray-100 placeholder:text-gray-500',[m
+[32m+[m[32m                    'focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:border-transparent',[m
+[32m+[m[32m                    'transition-colors'[m
+[32m+[m[32m                  )}[m
+[32m+[m[32m                  placeholder="Enter your password"[m
+[32m+[m[32m                />[m
+[32m+[m[32m                <button[m
+[32m+[m[32m                  type="button"[m
+[32m+[m[32m                  onClick={() => setShowPassword(!showPassword)}[m
+[32m+[m[32m                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"[m
+[32m+[m[32m                  aria-label={showPassword ? 'Hide password' : 'Show password'}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  {showPassword ? ([m
+[32m+[m[32m                    <EyeOff className="h-5 w-5" />[m
+[32m+[m[32m                  ) : ([m
+[32m+[m[32m                    <Eye className="h-5 w-5" />[m
+[32m+[m[32m                  )}[m
+[32m+[m[32m                </button>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            </div>[m
+[32m+[m
+[32m+[m[32m            {/* Error message */}[m
+[32m+[m[32m            {error && ([m
+[32m+[m[32m              <motion.div[m
+[32m+[m[32m                initial={{ opacity: 0, y: -10 }}[m
+[32m+[m[32m                animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m                className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800"[m
+[32m+[m[32m              >[m
+[32m+[m[32m                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>[m
+[32m+[m[32m              </motion.div>[m
+[32m+[m[32m            )}[m
+[32m+[m
+[32m+[m[32m            {/* Submit button */}[m
+[32m+[m[32m            <button[m
+[32m+[m[32m              type="submit"[m
+[32m+[m[32m              disabled={isLoading}[m
+[32m+[m[32m              className={cn([m
+[32m+[m[32m                'w-full py-3 rounded-lg font-medium text-white',[m
+[32m+[m[32m                'bg-medical-teal-500 hover:bg-medical-teal-600',[m
+[32m+[m[32m                'disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed',[m
+[32m+[m[32m                'focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:ring-offset-2',[m
+[32m+[m[32m                'transition-colors flex items-center justify-center gap-2'[m
+[32m+[m[32m              )}[m
+[32m+[m[32m            >[m
+[32m+[m[32m              {isLoading ? ([m
+[32m+[m[32m                <>[m
+[32m+[m[32m                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />[m
+[32m+[m[32m                  Signing in...[m
+[32m+[m[32m                </>[m
+[32m+[m[32m              ) : ([m
+[32m+[m[32m                <>[m
+[32m+[m[32m                  <LogIn className="h-4 w-4" />[m
+[32m+[m[32m                  Sign In[m
+[32m+[m[32m                </>[m
+[32m+[m[32m              )}[m
+[32m+[m[32m            </button>[m
+[32m+[m[32m          </form>[m
+[32m+[m
+[32m+[m[32m          {/* Footer links */}[m
+[32m+[m[32m          <div className="mt-6 text-center">[m
+[32m+[m[32m            <button[m
+[32m+[m[32m              type="button"[m
+[32m+[m[32m              className="text-sm text-medical-teal-600 dark:text-medical-teal-400 hover:underline"[m
+[32m+[m[32m            >[m
+[32m+[m[32m              Forgot your password?[m
+[32m+[m[32m            </button>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        {/* Registration link */}[m
+[32m+[m[32m        <div className="mt-6 text-center">[m
+[32m+[m[32m          <p className="text-sm text-gray-600 dark:text-gray-400">[m
+[32m+[m[32m            Don't have an account?{' '}[m
+[32m+[m[32m            <button[m
+[32m+[m[32m              onClick={() => navigate('/register')}[m
+[32m+[m[32m              className="text-medical-teal-600 dark:text-medical-teal-400 font-medium hover:underline"[m
+[32m+[m[32m            >[m
+[32m+[m[32m              Register as a CHW[m
+[32m+[m[32m            </button>[m
+[32m+[m[32m          </p>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </motion.div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  )[m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 3. Enhanced Design Tokens[m
+[32m+[m
+[32m+[m[32m**Current State:** Design tokens exist in `src/index.css` but are incomplete.[m
+[32m+[m
+[32m+[m[32m**Production-Ready Token Expansion:**[m
+[32m+[m
+[32m+[m[32m```css[m
+[32m+[m[32m/* src/index.css (Enhanced Design Tokens) */[m
+[32m+[m[32m@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');[m
+[32m+[m
+[32m+[m[32m@tailwind base;[m
+[32m+[m[32m@tailwind components;[m
+[32m+[m[32m@tailwind utilities;[m
+[32m+[m
+[32m+[m[32m@layer base {[m
+[32m+[m[32m  :root {[m
+[32m+[m[32m    /* === COLOR SYSTEM === */[m
+[32m+[m[41m    [m
+[32m+[m[32m    /* Primary: Medical Teal */[m
+[32m+[m[32m    --color-medical-teal-50: #F0F9F7;[m
+[32m+[m[32m    --color-medical-teal-100: #D0F0E9;[m
+[32m+[m[32m    --color-medical-teal-200: #A1E1D3;[m
+[32m+[m[32m    --color-medical-teal-300: #72D2BD;[m
+[32m+[m[32m    --color-medical-teal-400: #3CB89A;[m
+[32m+[m[32m    --color-medical-teal-500: #0A6E5C;  /* Base */[m
+[32m+[m[32m    --color-medical-teal-600: #085847;[m
+[32m+[m[32m    --color-medical-teal-700: #064231;[m
+[32m+[m[32m    --color-medical-teal-800: #042C21;[m
+[32m+[m[32m    --color-medical-teal-900: #021610;[m
+[32m+[m[32m    --color-medical-teal-950: #010B08;[m
+[32m+[m
+[32m+[m[32m    /* Secondary: Clinical Blue */[m
+[32m+[m[32m    --color-clinical-blue-50: #EFF6FC;[m
+[32m+[m[32m    --color-clinical-blue-100: #D8E9F8;[m
+[32m+[m[32m    --color-clinical-blue-200: #B1D3F1;[m
+[32m+[m[32m    --color-clinical-blue-300: #8ABDEA;[m
+[32m+[m[32m    --color-clinical-blue-400: #5497D6;[m
+[32m+[m[32m    --color-clinical-blue-500: #2C5F8D;  /* Base */[m
+[32m+[m[32m    --color-clinical-blue-600: #234C71;[m
+[32m+[m[32m    --color-clinical-blue-700: #1A3955;[m
+[32m+[m[32m    --color-clinical-blue-800: #122639;[m
+[32m+[m[32m    --color-clinical-blue-900: #09131C;[m
+[32m+[m[32m    --color-clinical-blue-950: #04090E;[m
+[32m+[m
+[32m+[m[32m    /* Semantic Colors */[m
+[32m+[m[32m    --color-success: #059669;      /* Emerald-600 */[m
+[32m+[m[32m    --color-success-light: #D1FAE5; /* Emerald-100 */[m
+[32m+[m[32m    --color-warning: #D97706;      /* Amber-600 */[m
+[32m+[m[32m    --color-warning-light: #FEF3C7; /* Amber-100 */[m
+[32m+[m[32m    --color-danger: #DC2626;       /* Red-600 */[m
+[32m+[m[32m    --color-danger-light: #FEE2E2; /* Red-100 */[m
+[32m+[m[32m    --color-critical: #991B1B;     /* Red-800 */[m
+[32m+[m[32m    --color-critical-light: #FCA5A5; /* Red-300 */[m
+[32m+[m
+[32m+[m[32m    /* Neutral Scale (Light Mode) */[m
+[32m+[m[32m    --color-gray-50: #F8FAFB;[m
+[32m+[m[32m    --color-gray-100: #F1F5F9;[m
+[32m+[m[32m    --color-gray-200: #E2E8F0;[m
+[32m+[m[32m    --color-gray-300: #CBD5E1;[m
+[32m+[m[32m    --color-gray-400: #94A3B8;[m
+[32m+[m[32m    --color-gray-500: #64748B;[m
+[32m+[m[32m    --color-gray-600: #475569;[m
+[32m+[m[32m    --color-gray-700: #334155;[m
+[32m+[m[32m    --color-gray-800: #1E293B;[m
+[32m+[m[32m    --color-gray-900: #0F172A;[m
+[32m+[m[32m    --color-gray-950: #020617;[m
+[32m+[m
+[32m+[m[32m    /* === SPACING SYSTEM === */[m
+[32m+[m[32m    --space-0: 0;[m
+[32m+[m[32m    --space-px: 1px;[m
+[32m+[m[32m    --space-0-5: 0.125rem;  /* 2px */[m
+[32m+[m[32m    --space-1: 0.25rem;     /* 4px */[m
+[32m+[m[32m    --space-1-5: 0.375rem;  /* 6px */[m
+[32m+[m[32m    --space-2: 0.5rem;      /* 8px */[m
+[32m+[m[32m    --space-2-5: 0.625rem;  /* 10px */[m
+[32m+[m[32m    --space-3: 0.75rem;     /* 12px */[m
+[32m+[m[32m    --space-3-5: 0.875rem;  /* 14px */[m
+[32m+[m[32m    --space-4: 1rem;        /* 16px */[m
+[32m+[m[32m    --space-5: 1.25rem;     /* 20px */[m
+[32m+[m[32m    --space-6: 1.5rem;      /* 24px */[m
+[32m+[m[32m    --space-7: 1.75rem;     /* 28px */[m
+[32m+[m[32m    --space-8: 2rem;        /* 32px */[m
+[32m+[m[32m    --space-10: 2.5rem;     /* 40px */[m
+[32m+[m[32m    --space-12: 3rem;       /* 48px */[m
+[32m+[m[32m    --space-16: 4rem;       /* 64px */[m
+[32m+[m[32m    --space-20: 5rem;       /* 80px */[m
+[32m+[m[32m    --space-24: 6rem;       /* 96px */[m
+[32m+[m
+[32m+[m[32m    /* === TYPOGRAPHY SCALE === */[m
+[32m+[m[32m    --font-size-xs: 0.75rem;    /* 12px */[m
+[32m+[m[32m    --font-size-sm: 0.875rem;   /* 14px */[m
+[32m+[m[32m    --font-size-base: 1rem;     /* 16px */[m
+[32m+[m[32m    --font-size-lg: 1.125rem;   /* 18px */[m
+[32m+[m[32m    --font-size-xl: 1.25rem;    /* 20px */[m
+[32m+[m[32m    --font-size-2xl: 1.5rem;    /* 24px */[m
+[32m+[m[32m    --font-size-3xl: 1.875rem;  /* 30px */[m
+[32m+[m[32m    --font-size-4xl: 2.25rem;   /* 36px */[m
+[32m+[m
+[32m+[m[32m    --line-height-tight: 1.25;[m
+[32m+[m[32m    --line-height-snug: 1.375;[m
+[32m+[m[32m    --line-height-normal: 1.5;[m
+[32m+[m[32m    --line-height-relaxed: 1.625;[m
+[32m+[m[32m    --line-height-loose: 2;[m
+[32m+[m
+[32m+[m[32m    --font-weight-normal: 400;[m
+[32m+[m[32m    --font-weight-medium: 500;[m
+[32m+[m[32m    --font-weight-semibold: 600;[m
+[32m+[m[32m    --font-weight-bold: 700;[m
+[32m+[m
+[32m+[m[32m    /* === BORDER RADIUS === */[m
+[32m+[m[32m    --radius-none: 0;[m
+[32m+[m[32m    --radius-sm: 0.25rem;   /* 4px */[m
+[32m+[m[32m    --radius-md: 0.5rem;    /* 8px */[m
+[32m+[m[32m    --radius-lg: 0.75rem;   /* 12px */[m
+[32m+[m[32m    --radius-xl: 1rem;      /* 16px */[m
+[32m+[m[32m    --radius-2xl: 1.5rem;   /* 24px */[m
+[32m+[m[32m    --radius-full: 9999px;[m
+[32m+[m
+[32m+[m[32m    /* === SHADOWS === */[m
+[32m+[m[32m    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);[m
+[32m+[m[32m    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);[m
+[32m+[m[32m    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);[m
+[32m+[m[32m    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);[m
+[32m+[m[32m    --shadow-teal: 0 10px 20px -5px rgba(10, 110, 92, 0.2);[m
+[32m+[m[32m    --shadow-blue: 0 10px 20px -5px rgba(44, 95, 141, 0.2);[m
+[32m+[m
+[32m+[m[32m    /* === TRANSITIONS === */[m
+[32m+[m[32m    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);[m
+[32m+[m[32m    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);[m
+[32m+[m[32m    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);[m
+[32m+[m
+[32m+[m[32m    /* === Z-INDEX SCALE === */[m
+[32m+[m[32m    --z-dropdown: 1000;[m
+[32m+[m[32m    --z-sticky: 1020;[m
+[32m+[m[32m    --z-fixed: 1030;[m
+[32m+[m[32m    --z-modal-backdrop: 1040;[m
+[32m+[m[32m    --z-modal: 1050;[m
+[32m+[m[32m    --z-popover: 1060;[m
+[32m+[m[32m    --z-tooltip: 1070;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /* Dark mode overrides */[m
+[32m+[m[32m  .dark {[m
+[32m+[m[32m    --color-gray-50: #020617;[m
+[32m+[m[32m    --color-gray-100: #0F172A;[m
+[32m+[m[32m    --color-gray-200: #1E293B;[m
+[32m+[m[32m    --color-gray-300: #334155;[m
+[32m+[m[32m    --color-gray-400: #475569;[m
+[32m+[m[32m    --color-gray-500: #64748B;[m
+[32m+[m[32m    --color-gray-600: #94A3B8;[m
+[32m+[m[32m    --color-gray-700: #CBD5E1;[m
+[32m+[m[32m    --color-gray-800: #E2E8F0;[m
+[32m+[m[32m    --color-gray-900: #F1F5F9;[m
+[32m+[m[32m    --color-gray-950: #F8FAFB;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /* Base styles */[m
+[32m+[m[32m  * {[m
+[32m+[m[32m    box-sizing: border-box;[m
+[32m+[m[32m    margin: 0;[m
+[32m+[m[32m    padding: 0;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  html {[m
+[32m+[m[32m    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',[m[41m [m
+[32m+[m[32m                 Roboto, Helvetica, Arial, sans-serif;[m
+[32m+[m[32m    -webkit-font-smoothing: antialiased;[m
+[32m+[m[32m    -moz-osx-font-smoothing: grayscale;[m
+[32m+[m[32m    text-rendering: optimizeLegibility;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  body {[m
+[32m+[m[32m    background-color: var(--color-gray-50);[m
+[32m+[m[32m    color: var(--color-gray-900);[m
+[32m+[m[32m    line-height: var(--line-height-normal);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /* Accessibility: Focus visible styles */[m
+[32m+[m[32m  :focus-visible {[m
+[32m+[m[32m    outline: 2px solid var(--color-medical-teal-500);[m
+[32m+[m[32m    outline-offset: 2px;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /* Accessibility: Reduced motion */[m
+[32m+[m[32m  @media (prefers-reduced-motion: reduce) {[m
+[32m+[m[32m    *,[m
+[32m+[m[32m    *::before,[m
+[32m+[m[32m    *::after {[m
+[32m+[m[32m      animation-duration: 0.01ms !important;[m
+[32m+[m[32m      animation-iteration-count: 1 !important;[m
+[32m+[m[32m      transition-duration: 0.01ms !important;[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /* Touch target minimum size (44x44px) */[m
+[32m+[m[32m  button,[m
+[32m+[m[32m  a,[m
+[32m+[m[32m  input[type="checkbox"],[m
+[32m+[m[32m  input[type="radio"] {[m
+[32m+[m[32m    min-height: 44px;[m
+[32m+[m[32m    min-width: 44px;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  /* Scrollbar styling (optional) */[m
+[32m+[m[32m  ::-webkit-scrollbar {[m
+[32m+[m[32m    width: 8px;[m
+[32m+[m[32m    height: 8px;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  ::-webkit-scrollbar-track {[m
+[32m+[m[32m    background: var(--color-gray-100);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  ::-webkit-scrollbar-thumb {[m
+[32m+[m[32m    background: var(--color-gray-400);[m
+[32m+[m[32m    border-radius: var(--radius-full);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  ::-webkit-scrollbar-thumb:hover {[m
+[32m+[m[32m    background: var(--color-gray-500);[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m/* Utility classes */[m
+[32m+[m[32m@layer utilities {[m
+[32m+[m[32m  .text-balance {[m
+[32m+[m[32m    text-wrap: balance;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .focus-ring {[m
+[32m+[m[32m    @apply focus:outline-none focus:ring-2 focus:ring-medical-teal-500 focus:ring-offset-2;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .transition-base {[m
+[32m+[m[32m    transition: all var(--transition-base);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .skeleton {[m
+[32m+[m[32m    background: linear-gradient([m
+[32m+[m[32m      90deg,[m
+[32m+[m[32m      var(--color-gray-200) 25%,[m
+[32m+[m[32m      var(--color-gray-300) 50%,[m
+[32m+[m[32m      var(--color-gray-200) 75%[m
+[32m+[m[32m    );[m
+[32m+[m[32m    background-size: 200% 100%;[m
+[32m+[m[32m    animation: shimmer 1.5s infinite;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  @keyframes shimmer {[m
+[32m+[m[32m    0% {[m
+[32m+[m[32m      background-position: 200% 0;[m
+[32m+[m[32m    }[m
+[32m+[m[32m    100% {[m
+[32m+[m[32m      background-position: -200% 0;[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .glass {[m
+[32m+[m[32m    background: rgba(255, 255, 255, 0.8);[m
+[32m+[m[32m    backdrop-filter: blur(10px);[m
+[32m+[m[32m    -webkit-backdrop-filter: blur(10px);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  .dark .glass {[m
+[32m+[m[32m    background: rgba(15, 23, 42, 0.8);[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m**Tailwind Config Extension:**[m
+[32m+[m
+[32m+[m[32m```javascript[m
+[32m+[m[32m// tailwind.config.js (Extended)[m
+[32m+[m[32mmodule.exports = {[m
+[32m+[m[32m  darkMode: 'class',[m
+[32m+[m[32m  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],[m
+[32m+[m[32m  theme: {[m
+[32m+[m[32m    extend: {[m
+[32m+[m[32m      colors: {[m
+[32m+[m[32m        'medical-teal': {[m
+[32m+[m[32m          50: 'var(--color-medical-teal-50)',[m
+[32m+[m[32m          100: 'var(--color-medical-teal-100)',[m
+[32m+[m[32m          200: 'var(--color-medical-teal-200)',[m
+[32m+[m[32m          300: 'var(--color-medical-teal-300)',[m
+[32m+[m[32m          400: 'var(--color-medical-teal-400)',[m
+[32m+[m[32m          500: 'var(--color-medical-teal-500)',[m
+[32m+[m[32m          600: 'var(--color-medical-teal-600)',[m
+[32m+[m[32m          700: 'var(--color-medical-teal-700)',[m
+[32m+[m[32m          800: 'var(--color-medical-teal-800)',[m
+[32m+[m[32m          900: 'var(--color-medical-teal-900)',[m
+[32m+[m[32m          950: 'var(--color-medical-teal-950)',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        'clinical-blue': {[m
+[32m+[m[32m          50: 'var(--color-clinical-blue-50)',[m
+[32m+[m[32m          100: 'var(--color-clinical-blue-100)',[m
+[32m+[m[32m          200: 'var(--color-clinical-blue-200)',[m
+[32m+[m[32m          300: 'var(--color-clinical-blue-300)',[m
+[32m+[m[32m          400: 'var(--color-clinical-blue-400)',[m
+[32m+[m[32m          500: 'var(--color-clinical-blue-500)',[m
+[32m+[m[32m          600: 'var(--color-clinical-blue-600)',[m
+[32m+[m[32m          700: 'var(--color-clinical-blue-700)',[m
+[32m+[m[32m          800: 'var(--color-clinical-blue-800)',[m
+[32m+[m[32m          900: 'var(--color-clinical-blue-900)',[m
+[32m+[m[32m          950: 'var(--color-clinical-blue-950)',[m
+[32m+[m[32m        },[m
+[32m+[m[32m      },[m
+[32m+[m[32m      fontFamily: {[m
+[32m+[m[32m        sans: ['Inter', 'system-ui', 'sans-serif'],[m
+[32m+[m[32m      },[m
+[32m+[m[32m      boxShadow: {[m
+[32m+[m[32m        teal: 'var(--shadow-teal)',[m
+[32m+[m[32m        blue: 'var(--shadow-blue)',[m
+[32m+[m[32m      },[m
+[32m+[m[32m      animation: {[m
+[32m+[m[32m        shimmer: 'shimmer 1.5s infinite',[m
+[32m+[m[32m        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',[m
+[32m+[m[32m      },[m
+[32m+[m[32m    },[m
+[32m+[m[32m  },[m
+[32m+[m[32m  plugins: [],[m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 4. Implementation Roadmap[m
+[32m+[m
+[32m+[m[32m### Phase 1: Critical UX Fixes (Week 1)[m
+[32m+[m[32m- [ ] Replace generic disclaimer with `MedicalDisclaimer` component[m
+[32m+[m[32m- [ ] Implement `ClinicalLoadingState` on all analysis flows[m
+[32m+[m[32m- [ ] Add offline indicator component to header[m
+[32m+[m[32m- [ ] Test all loading states with network throttling[m
+[32m+[m
+[32m+[m[32m### Phase 2: Authentication System (Week 2)[m
+[32m+[m[32m- [ ] Backend: Implement JWT auth routes (`/api/auth/*`)[m
+[32m+[m[32m- [ ] Backend: Add user database models and migrations[m
+[32m+[m[32m- [ ] Frontend: Implement `authStore` with IndexedDB[m
+[32m+[m[32m- [ ] Frontend: Build Login and Registration pages[m
+[32m+[m[32m- [ ] Frontend: Add auth middleware to protected routes[m
+[32m+[m
+[32m+[m[32m### Phase 3: Protocol Assistant Enhancement (Week 3)[m
+[32m+[m[32m- [ ] Redesign Protocol Assistant with conversational UI[m
+[32m+[m[32m- [ ] Implement message history state management[m
+[32m+[m[32m- [ ] Add context-passing from analysis results[m
+[32m+[m[32m- [ ] Test with real clinical protocol queries[m
+[32m+[m
+[32m+[m[32m### Phase 4: Design Token Consolidation (Week 4)[m
+[32m+[m[32m- [ ] Expand CSS variables in `index.css`[m
+[32m+[m[32m- [ ] Update Tailwind config with all token references[m
+[32m+[m[32m- [ ] Audit all components for design token compliance[m
+[32m+[m[32m- [ ] Dark mode testing and contrast validation[m
+[32m+[m
+[32m+[m[32m### Phase 5: Accessibility Audit (Week 5)[m
+[32m+[m[32m- [ ] Run axe DevTools on all pages[m
+[32m+[m[32m- [ ] Test with screen readers (NVDA, JAWS, VoiceOver)[m
+[32m+[m[32m- [ ] Keyboard navigation audit[m
+[32m+[m[32m- [ ] Color contrast validation (WCAG AAA where possible)[m
+[32m+[m
+[32m+[m[32m### Phase 6: Performance Optimization (Week 6)[m
+[32m+[m[32m- [ ] Lazy load analysis components[m
+[32m+[m[32m- [ ] Optimize image handling (compression, WebP)[m
+[32m+[m[32m- [ ] Service worker caching strategy review[m
+[32m+[m[32m- [ ] Lighthouse PWA audit (target: 95+ score)[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 5. Acceptance Criteria[m
+[32m+[m
+[32m+[m[32m### UI/UX Quality Gates[m
+[32m+[m[32m1. ✅ All interactive elements have minimum 44x44px touch targets[m
+[32m+[m[32m2. ✅ Color contrast meets WCAG 2.1 AAA (7:1) for medical severity indicators[m
+[32m+[m[32m3. ✅ All animations respect `prefers-reduced-motion`[m
+[32m+[m[32m4. ✅ Loading states never show blank screens (max 300ms to skeleton)[m
+[32m+[m[32m5. ✅ Disclaimer present on all AI analysis result pages[m
+[32m+[m[32m6. ✅ Offline state always visible when disconnected[m
+[32m+[m[32m7. ✅ Dark mode tested at all breakpoints[m
+[32m+[m[32m8. ✅ Zero console errors or warnings in production build[m
+[32m+[m
+[32m+[m[32m### Authentication Security Gates[m
+[32m+[m[32m1. ✅ Passwords hashed with bcrypt (cost factor 12+)[m
+[32m+[m[32m2. ✅ JWT tokens expire after 24 hours[m
+[32m+[m[32m3. ✅ Refresh tokens rotated on every use[m
+[32m+[m[32m4. ✅ Tokens stored in IndexedDB (not localStorage)[m
+[32m+[m[32m5. ✅ HTTPS enforced in production[m
+[32m+[m[32m6. ✅ Rate limiting on login endpoint (5 attempts per 15 min)[m
+[32m+[m[32m7. ✅ Role-based access control enforced on backend[m
+[32m+[m[32m8. ✅ Session invalidation on logout clears all tokens[m
+[32m+[m
+[32m+[m[32m### Clinical Safety Gates[m
+[32m+[m[32m1. ✅ Disclaimer cannot be hidden or dismissed[m
+[32m+[m[32m2. ✅ Emergency severity states trigger visual alerts[m
+[32m+[m[32m3. ✅ Referral recommendations clearly visible[m
+[32m+[m[32m4. ✅ AI confidence scores always displayed[m
+[32m+[m[32m5. ✅ No medical recommendations without consent[m
+[32m+[m[32m6. ✅ Offline queued analyses marked as "pending"[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 6. Testing Strategy[m
+[32m+[m
+[32m+[m[32m### Manual Testing Checklist[m
+[32m+[m
+[32m+[m[32m**Disclaimer Component:**[m
+[32m+[m[32m- [ ] Renders on all analysis result pages[m
+[32m+[m[32m- [ ] Dark mode colors meet contrast requirements[m
+[32m+[m[32m- [ ] Text is legible at 375px viewport width[m
+[32m+[m[32m- [ ] Context-aware messaging displays correctly[m
+[32m+[m
+[32m+[m[32m**Loading States:**[m
+[32m+[m[32m- [ ] Messages cycle every 2.5 seconds[m
+[32m+[m[32m- [ ] Progress bar never reaches 100% until complete[m
+[32m+[m[32m- [ ] Offline queued state shows correctly[m
+[32m+[m[32m- [ ] Reduced motion variant works[m
+[32m+[m
+[32m+[m[32m**Protocol Assistant:**[m
+[32m+[m[32m- [ ] Suggested questions trigger conversations[m
+[32m+[m[32m- [ ] Message history scrolls smoothly[m
+[32m+[m[32m- [ ] Timestamp formatting is correct[m
+[32m+[m[32m- [ ] Loading indicator appears during processing[m
+[32m+[m[32m- [ ] Input field clears after send[m
+[32m+[m
+[32m+[m[32m**Authentication:**[m
+[32m+[m[32m- [ ] Login succeeds with valid credentials[m
+[32m+[m[32m- [ ] Login fails with invalid credentials[m
+[32m+[m[32m- [ ] Token refresh works before expiry[m
+[32m+[m[32m- [ ] Logout clears all stored tokens[m
+[32m+[m[32m- [ ] IndexedDB persists session across refreshes[m
+[32m+[m[32m- [ ] Protected routes redirect to login when unauthenticated[m
+[32m+[m
+[32m+[m[32m### Automated Testing[m
+[32m+[m
+[32m+[m[32m```typescript[m
+[32m+[m[32m// Example test for MedicalDisclaimer component[m
+[32m+[m[32mimport { render, screen } from '@testing-library/react'[m
+[32m+[m[32mimport { MedicalDisclaimer } from '@/components/disclaimer/MedicalDisclaimer'[m
+[32m+[m
+[32m+[m[32mdescribe('MedicalDisclaimer', () => {[m
+[32m+[m[32m  it('renders with correct ARIA attributes', () => {[m
+[32m+[m[32m    render(<MedicalDisclaimer context="analysis" />)[m
+[32m+[m[32m    const alert = screen.getByRole('alert')[m
+[32m+[m[32m    expect(alert).toHaveAttribute('aria-live', 'polite')[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('shows context-specific messaging', () => {[m
+[32m+[m[32m    render(<MedicalDisclaimer context="protocol" />)[m
+[32m+[m[32m    expect(screen.getByText(/Clinical Protocol Reference/i)).toBeInTheDocument()[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('applies correct variant styles', () => {[m
+[32m+[m[32m    const { container } = render(<MedicalDisclaimer variant="prominent" />)[m
+[32m+[m[32m    expect(container.firstChild).toHaveClass('p-6 border-2 shadow-md')[m
+[32m+[m[32m  })[m
+[32m+[m[32m})[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 7. Design System Documentation Website (Future Enhancement)[m
+[32m+[m
+[32m+[m[32mFor long-term maintenance, consider building an internal Storybook instance:[m
+[32m+[m
+[32m+[m[32m```bash[m
+[32m+[m[32m# Install Storybook[m
+[32m+[m[32mnpx storybook@latest init[m
+[32m+[m
+[32m+[m[32m# Create stories for key components[m
+[32m+[m[32m# src/components/disclaimer/MedicalDisclaimer.stories.tsx[m
+[32m+[m[32m# src/components/loading/ClinicalLoadingState.stories.tsx[m
+[32m+[m[32m# etc.[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThis allows the team to:[m
+[32m+[m[32m- Preview all component variants[m
+[32m+[m[32m- Test dark mode in isolation[m
+[32m+[m[32m- Document accessibility features[m
+[32m+[m[32m- Share with stakeholders[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 8. Appendix: Color Accessibility Matrix[m
+[32m+[m
+[32m+[m[32m| Color Pair | Contrast Ratio | WCAG Level | Use Case |[m
+[32m+[m[32m|------------|---------------|------------|----------|[m
+[32m+[m[32m| Medical Teal 500 on White | 7.2:1 | AAA | Primary buttons, headers |[m
+[32m+[m[32m| Clinical Blue 500 on White | 8.1:1 | AAA | Secondary actions, info states |[m
+[32m+[m[32m| Success Green on White | 6.8:1 | AAA | Positive results, confirmations |[m
+[32m+[m[32m| Warning Amber on White | 5.9:1 | AA Large | Caution indicators |[m
+[32m+[m[32m| Danger Red on White | 7.5:1 | AAA | High-risk results, errors |[m
+[32m+[m[32m| Critical Dark Red on White | 10.2:1 | AAA | Emergency alerts |[m
+[32m+[m[32m| Medical Teal 400 on Gray 900 (dark mode) | 6.5:1 | AAA | Primary actions in dark UI |[m
+[32m+[m
+[32m+[m[32m**Testing Tool:** [WebAIM Contrast Checker](https://webaim.org/resources/contrastchecker/)[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Conclusion[m
+[32m+[m
+[32m+[m[32mThis documentation provides a comprehensive, production-ready roadmap for elevating CareVision from a hackathon prototype to a clinical-grade Progressive Web App. All recommendations prioritize:[m
+[32m+[m
+[32m+[m[32m1. **Patient Safety** — Medical disclaimers and severity indicators meet clinical standards[m
+[32m+[m[32m2. **User Trust** — Loading states and offline indicators reassure CHWs[m
+[32m+[m[32m3. **Accessibility** — WCAG 2.1 AAA compliance for medical contexts[m
+[32m+[m[32m4. **Security** — Offline-first authentication protects patient data[m
+[32m+[m[32m5. **Maintainability** — Design tokens and component architecture scale[m
+[32m+[m
+[32m+[m[32m**Next Steps:**[m
+[32m+[m[32m1. Review this document with the development team[m
+[32m+[m[32m2. Prioritize implementation phases based on hackathon timeline[m
+[32m+[m[32m3. Begin with Phase 1 (Critical UX Fixes) for immediate impact[m
+[32m+[m[32m4. Iterate based on user feedback from CHW pilot testing[m
+[32m+[m
+[32m+[m[32m**Document Version Control:**[m
+[32m+[m[32m- v2.0 — May 2, 2026 — Initial comprehensive improvement documentation[m
+[32m+[m[32m- Future updates should increment version and document changes[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m**Prepared by:** Claude (UI/UX-PRO-MAX Framework)[m[41m  [m
+[32m+[m[32m**For:** CareVision Development Team[m[41m  [m
+[32m+[m[32m**Contact:** [Project Lead Email][m

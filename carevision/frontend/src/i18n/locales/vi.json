@@ -1,0 +1,12 @@
+{
+  "app_title": "CareVision",
+  "test_strip_title": "Phân tích RDT",
+  "med_scan_title": "MedScan",
+  "wound_assess_title": "Đánh giá Vết thương",
+  "doc_reader_title": "Trình đọc Tài liệu",
+  "protocol_title": "Trợ lý Giao thức",
+  "referral_title": "Chuyển viện",
+  "disclaimer_text": "CareVision cung cấp phân tích được AI hỗ trợ chỉ cho mục đích thông tin. KHÔNG phải là sự thay thế cho đánh giá y khoa chuyên môn. Luôn tuân theo các giao thức lâm sàng địa phương.",
+  "accept_disclaimer": "Tôi hiểu và đồng ý",
+  "offline_mode": "Hoạt động Ngoại tuyến. Các yêu cầu sẽ đồng bộ hóa khi được kết nối."
+}
