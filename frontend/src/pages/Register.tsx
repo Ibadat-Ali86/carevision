@@ -62,7 +62,8 @@ export default function Register() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/auth/register', {
+      const { API_BASE_URL } = await import('@/constants/api');
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
