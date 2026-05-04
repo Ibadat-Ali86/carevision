@@ -6,7 +6,7 @@
 // Base URL from Vite environment variable — set in .env as VITE_API_BASE_URL
 // Falls back to 127.0.0.1:8000 for local development to avoid IPv6 resolution issues
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
+  ((import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
 // WHY 60s: Gemma AI analysis has 15–25s latency on first request (cold start).
 // 30s was too aggressive — caused spurious TIMEOUT_ERRORs before the model responded.

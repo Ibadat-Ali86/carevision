@@ -53,13 +53,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — origins controlled by ALLOWED_ORIGINS env var
+    # CORS — origins controlled by ALLOWED_ORIGINS env var, plus Vercel fallback
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.parsed_allowed_origins,
+        allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # Global exception handler — sanitizes all 500 responses
