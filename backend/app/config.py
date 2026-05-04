@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     logfire_token: str = ""
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    # JSON array string in env: '["https://carevision.vercel.app"]'
-    allowed_origins: list[str] = ["http://localhost:5173"]
+    # JSON array string in env: '["https://carevision.vercel.app"]' or comma-separated
+    allowed_origins: list[str] | str = ["http://localhost:5173"]
 
     # ── Runtime ───────────────────────────────────────────────────────────────
     environment: str = "development"
@@ -56,9 +56,18 @@ class Settings(BaseSettings):
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:
-        """Parse ALLOWED_ORIGINS from JSON string or return list as-is."""
+        """Parse ALLOWED_ORIGINS from JSON string, comma-separated string, or return list as-is."""
         if isinstance(value, str):
-            return json.loads(value)
+            value = value.strip()
+            if not value:
+                return []
+            if value.startswith("[") and value.endswith("]"):
+                try:
+                    return json.loads(value)
+                except json.JSONDecodeError:
+                    pass
+            # Fallback for simple comma-separated strings without brackets
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

@@ -20,6 +20,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import Dexie, { type Table } from 'dexie';
+import { API_BASE_URL } from '@/constants/api';
 
 
 // ─── IndexedDB schema ─────────────────────────────────────────────────────────
@@ -90,7 +91,9 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           // OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
-          const response = await fetch('/api/auth/token', {
+          // WHY absolute URL: relative paths resolve to Vercel's static host in production,
+          // not the Railway backend. API_BASE_URL is set via VITE_API_BASE_URL env var.
+          const response = await fetch(`${API_BASE_URL}/auth/token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ username: email, password }),
@@ -130,7 +133,7 @@ export const useAuthStore = create<AuthState>()(
         // Fire and forget — if offline, tokens will be unusable after expiry anyway
         const token = await getStoredAccessToken();
         if (token) {
-          fetch('/api/auth/logout', {
+          fetch(`${API_BASE_URL}/auth/logout`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
           }).catch(() => void 0);
@@ -152,7 +155,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('/api/auth/refresh', {
+          const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh_token: record.value }),
@@ -181,7 +184,7 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          const response = await fetch('/api/auth/me', {
+          const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: { Authorization: `Bearer ${stored.value}` },
           });
 
