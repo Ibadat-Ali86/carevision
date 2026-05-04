@@ -20,6 +20,8 @@ class GemmaClient:
         self._client = AsyncOpenAI(
             api_key=settings.gemma_api_key,
             base_url="https://integrate.api.nvidia.com/v1",
+            timeout=float(settings.gemma_timeout_seconds),
+            max_retries=0,  # We handle retries manually in analyze() with logging
         )
         self._model_name = settings.gemma_model
         self._max_retries = settings.gemma_max_retries

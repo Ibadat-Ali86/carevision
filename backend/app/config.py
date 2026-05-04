@@ -19,7 +19,12 @@ class Settings(BaseSettings):
     """
 
     # ── AI Model ─────────────────────────────────────────────────────────────
-    gemma_api_key: str
+    # WHY two fields: Railway dashboard uses NVIDIA_API_KEY, but older deploys
+    # used GEMMA_API_KEY. We accept BOTH and unify in the validator below.
+    # The NVIDIA NIM endpoint (integrate.api.nvidia.com) accepts the same key
+    # regardless of which env var name you use to store it.
+    gemma_api_key: str = ""
+    nvidia_api_key: str = ""   # Alias accepted from NVIDIA_API_KEY in Railway
     gemma_model: str = "meta/llama-3.2-11b-vision-instruct"
     gemma_max_retries: int = 2
     gemma_timeout_seconds: int = 30
@@ -125,6 +130,37 @@ class Settings(BaseSettings):
         return origins if origins else ["http://localhost:5173"]
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+
+    def model_post_init(self, __context: object) -> None:
+        """Unify GEMMA_API_KEY and NVIDIA_API_KEY into a single resolved key.
+
+        WHY post_init: field_validator cannot reference sibling fields (they may
+        not be set yet). model_post_init runs after ALL fields are validated,
+        making it the only safe place to cross-reference two fields.
+
+        Resolution order:
+          1. GEMMA_API_KEY (explicit, legacy)
+          2. NVIDIA_API_KEY (Railway convention)
+          3. Empty string → startup warning (not a crash; routes will 503)
+        """
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
+
+        resolved = (self.gemma_api_key or self.nvidia_api_key or "").strip()
+        if not resolved:
+            _log.error(
+                "CRITICAL: Neither GEMMA_API_KEY nor NVIDIA_API_KEY is set. "
+                "All AI analysis endpoints will return 503. "
+                "Set GEMMA_API_KEY in Railway Variables and redeploy."
+            )
+        else:
+            # Overwrite gemma_api_key so gemma_client always reads one field
+            object.__setattr__(self, "gemma_api_key", resolved)
+            _log.info(
+                "AI API key loaded (source=%s, length=%d).",
+                "GEMMA_API_KEY" if self.gemma_api_key else "NVIDIA_API_KEY",
+                len(resolved),
+            )
 
 
 # Module-level singleton — imported by all route and service modules.
