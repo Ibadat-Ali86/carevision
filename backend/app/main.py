@@ -56,7 +56,7 @@ def create_app() -> FastAPI:
     # CORS — origins controlled by ALLOWED_ORIGINS env var
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=settings.parsed_allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "Authorization"],

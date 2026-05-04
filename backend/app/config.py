@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     # JSON array string in env: '["https://carevision.vercel.app"]' or comma-separated
-    allowed_origins: Any = ["http://localhost:5173"]
+    allowed_origins: str = "http://localhost:5173"
 
     # ── Runtime ───────────────────────────────────────────────────────────────
     environment: str = "development"
@@ -54,22 +54,19 @@ class Settings(BaseSettings):
     # unsigned tokens. Generate with: python -c "import secrets; print(secrets.token_hex(32))"
     secret_key: str = "dev-secret-change-in-production-32chars-minimum"
 
-    @field_validator("allowed_origins", mode="before")
-    @classmethod
-    def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:
+    @property
+    def parsed_allowed_origins(self) -> list[str]:
         """Parse ALLOWED_ORIGINS from JSON string, comma-separated string, or return list as-is."""
-        if isinstance(value, str):
-            value = value.strip()
-            if not value:
-                return []
-            if value.startswith("[") and value.endswith("]"):
-                try:
-                    return json.loads(value)
-                except json.JSONDecodeError:
-                    pass
-            # Fallback for simple comma-separated strings without brackets
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+        value = self.allowed_origins.strip()
+        if not value:
+            return []
+        if value.startswith("[") and value.endswith("]"):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                pass
+        # Fallback for simple comma-separated strings without brackets
+        return [origin.strip() for origin in value.split(",") if origin.strip()]
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
