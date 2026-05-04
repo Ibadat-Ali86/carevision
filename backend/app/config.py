@@ -87,6 +87,27 @@ class Settings(BaseSettings):
         
         return str(v)
 
+    @field_validator("secret_key", mode="before")
+    @classmethod
+    def validate_secret_key(cls, v: Any) -> str:
+        """Strip whitespace from secret_key.
+
+        WHY: Railway (and other PaaS) env var editors can silently introduce leading
+        or trailing spaces. A corrupted secret_key causes JWT signing/verification
+        to use a different key than intended — tokens issued before/after a redeploy
+        become invalid and users are logged out unexpectedly.
+        """
+        if isinstance(v, str):
+            v = v.strip()
+        if not v or len(v) < 32:
+            import logging
+            logging.warning(
+                "SECRET_KEY is missing or shorter than 32 characters. "
+                "Using dev default — change this in production!"
+            )
+            return "dev-secret-change-in-production-32chars-minimum"
+        return v
+
     @property
     def parsed_allowed_origins(self) -> list[str]:
         """Parse ALLOWED_ORIGINS from JSON string, comma-separated string, or return list as-is."""

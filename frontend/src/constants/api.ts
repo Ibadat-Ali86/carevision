@@ -1,12 +1,34 @@
 /**
  * CareVision — API Configuration Constants
  * Spec Reference: Section 8.5 (API Client Setup)
+ *
+ * PRODUCTION REQUIREMENT:
+ *   Set VITE_API_BASE_URL in your Vercel project dashboard under:
+ *   Project → Settings → Environment Variables
+ *   Value: https://<your-railway-app>.up.railway.app
+ *
+ *   Vite bakes this value at BUILD TIME. Adding it after deployment
+ *   requires a full Vercel redeploy to take effect.
  */
 
-// Base URL from Vite environment variable — set in .env as VITE_API_BASE_URL
-// Falls back to 127.0.0.1:8000 for local development to avoid IPv6 resolution issues
-export const API_BASE_URL: string =
-  ((import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+// Resolve the backend base URL.
+// In production (Vercel), VITE_API_BASE_URL MUST be set or all API calls fail.
+// In development, falls back to 127.0.0.1:8000.
+const _rawApiUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+
+if (!_rawApiUrl && import.meta.env.PROD) {
+  // This runs at runtime in the browser. If we reach here in production,
+  // it means the env var was not set when Vercel built the frontend.
+  // Log a clear error so it appears in browser DevTools.
+  console.error(
+    '[CareVision] FATAL: VITE_API_BASE_URL is not set.\n' +
+    'Go to Vercel → Project Settings → Environment Variables and add:\n' +
+    '  VITE_API_BASE_URL = https://<your-railway-app>.up.railway.app\n' +
+    'Then trigger a manual redeploy from the Vercel dashboard.'
+  );
+}
+
+export const API_BASE_URL: string = (_rawApiUrl || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
 // WHY 60s: Gemma AI analysis has 15–25s latency on first request (cold start).
 // 30s was too aggressive — caused spurious TIMEOUT_ERRORs before the model responded.
