@@ -15,6 +15,12 @@
 
 ### 🚀 **[Live Demo → carevision-chw.vercel.app](https://carevision-chw.vercel.app/landing)**
 
+
+
+https://github.com/user-attachments/assets/4679fe7d-af39-4f9f-8356-282a04040f67
+
+
+
 > **CareVision** is an enterprise-grade Progressive Web Application (PWA) that empowers Community Health Workers (CHWs) and clinicians with AI-assisted diagnostic capabilities in resource-constrained environments. Powered by **NVIDIA NIM** (`meta/llama-3.2-11b-vision-instruct`), it delivers real-time multimodal analysis of medical documents, diagnostic test strips, medication scans, and wound assessments — with multilingual support, stateless JWT authentication, and a robust offline-first architecture.
 
 </div>
