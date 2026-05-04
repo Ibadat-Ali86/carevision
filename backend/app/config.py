@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -42,7 +43,7 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     # JSON array string in env: '["https://carevision.vercel.app"]' or comma-separated
-    allowed_origins: list[str] | str = ["http://localhost:5173"]
+    allowed_origins: Any = ["http://localhost:5173"]
 
     # ── Runtime ───────────────────────────────────────────────────────────────
     environment: str = "development"
