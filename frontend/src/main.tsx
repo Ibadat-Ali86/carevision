@@ -34,6 +34,6 @@ if (import.meta.env.PROD) {
   // Dynamic import prevents TypeScript errors if the virtual module
   // hasn't been generated yet (i.e., during development)
   void import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({ immediate: false });
+    registerSW({ immediate: true });
   });
 }

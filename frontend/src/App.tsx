@@ -18,6 +18,7 @@ import { OfflineIndicator } from '@/components/shared/OfflineIndicator';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAuthStore } from '@/store/authStore';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 
 // Lazy-load all pages for PWA code-splitting (reduces initial bundle)
 const Home              = lazy(() => import('@/pages/Home'));
@@ -100,6 +101,8 @@ export default function App() {
   const { language } = useSettingsStore();
   const { i18n } = useTranslation();
   const checkAuth = useAuthStore((s) => s.checkAuth);
+
+  useInactivityTimeout();
 
   useEffect(() => {
     if (i18n.language !== language) {
