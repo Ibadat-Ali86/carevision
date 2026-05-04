@@ -83,3 +83,4 @@ htmlcov/
 # ── Docker ────────────────────────────────────────────────────────
 # Keep Dockerfile and docker-compose.yml — exclude runtime volumes
 docker-volumes/
+.vercel

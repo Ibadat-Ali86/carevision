@@ -20,7 +20,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import Dexie, { type Table } from 'dexie';
-import { getAuthToken } from '@/api/endpoints';
+
 
 // ─── IndexedDB schema ─────────────────────────────────────────────────────────
 
