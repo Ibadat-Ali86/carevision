@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class GemmaClient:
-    """Sole integration point with the NVIDIA NIM (OpenAI-compatible) API.
+    """Sole integration point with the Google AI Studio (OpenAI-compatible) API.
 
     Handles image+prompt composition, structured JSON output extraction,
     retry logic, and latency logging.
@@ -19,7 +19,7 @@ class GemmaClient:
     def __init__(self) -> None:
         self._client = AsyncOpenAI(
             api_key=settings.gemma_api_key,
-            base_url="https://integrate.api.nvidia.com/v1",
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             timeout=float(settings.gemma_timeout_seconds),
             max_retries=0,  # We handle retries manually in analyze() with logging
         )
@@ -35,7 +35,7 @@ class GemmaClient:
         temperature: float = 0.1,
         max_output_tokens: int = 1024,
     ) -> dict[str, Any]:
-        """Send an image + prompt to NVIDIA NIM and return a structured dict."""
+        """Send an image + prompt to Google AI Studio and return a structured dict."""
         
         full_prompt = (
             f"{system_prompt}\n\n"
@@ -90,14 +90,14 @@ class GemmaClient:
             except Exception as exc:
                 last_error = exc
                 logger.warning(
-                    "Gemma NIM API attempt %d/%d failed: %s",
+                    "Google API attempt %d/%d failed: %s",
                     attempt + 1,
                     self._max_retries + 1,
                     exc,
                 )
 
         raise RuntimeError(
-            f"Gemma NIM API failed after {self._max_retries + 1} attempts. "
+            f"Google API failed after {self._max_retries + 1} attempts. "
             f"Last error: {last_error}"
         )
 
@@ -175,7 +175,7 @@ class GemmaClient:
             except json.JSONDecodeError:
                 pass
                 
-        raise ValueError(f"No parseable JSON in NIM response: {text[:100]}...")
+        raise ValueError(f"No parseable JSON in Google API response: {text[:100]}...")
 
 
 # Module-level singleton — never instantiate GemmaClient() inside a route handler.

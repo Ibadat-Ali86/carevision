@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     # regardless of which env var name you use to store it.
     gemma_api_key: str = ""
     nvidia_api_key: str = ""   # Alias accepted from NVIDIA_API_KEY in Railway
-    gemma_model: str = "meta/llama-3.2-11b-vision-instruct"
+    gemini_api_key: str = ""   # Added for Google AI Studio
+    gemma_model: str = "gemini-1.5-flash"
     gemma_max_retries: int = 2
     gemma_timeout_seconds: int = 30
 
@@ -146,19 +147,24 @@ class Settings(BaseSettings):
         import logging as _logging
         _log = _logging.getLogger(__name__)
 
-        resolved = (self.gemma_api_key or self.nvidia_api_key or "").strip()
+        resolved = (self.gemini_api_key or self.gemma_api_key or self.nvidia_api_key or "").strip()
         if not resolved:
             _log.error(
-                "CRITICAL: Neither GEMMA_API_KEY nor NVIDIA_API_KEY is set. "
+                "CRITICAL: Neither GEMINI_API_KEY, GEMMA_API_KEY, nor NVIDIA_API_KEY is set. "
                 "All AI analysis endpoints will return 503. "
-                "Set GEMMA_API_KEY in Railway Variables and redeploy."
+                "Set GEMINI_API_KEY in Railway Variables and redeploy."
             )
         else:
             # Overwrite gemma_api_key so gemma_client always reads one field
             object.__setattr__(self, "gemma_api_key", resolved)
+            
+            source = "NVIDIA_API_KEY"
+            if self.gemini_api_key: source = "GEMINI_API_KEY"
+            elif self.gemma_api_key: source = "GEMMA_API_KEY"
+            
             _log.info(
                 "AI API key loaded (source=%s, length=%d).",
-                "GEMMA_API_KEY" if self.gemma_api_key else "NVIDIA_API_KEY",
+                source,
                 len(resolved),
             )
 
