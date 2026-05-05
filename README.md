@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)
-![NVIDIA NIM](https://img.shields.io/badge/AI-NVIDIA_NIM-76B900?logo=nvidia&logoColor=white)
+![Google AI Studio](https://img.shields.io/badge/AI-Google_AI_Studio-4285F4?logo=google&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-Enabled-5A0FC8?logo=pwa)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6?logo=typescript&logoColor=white)
 ![Deployed on Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white)
@@ -21,7 +21,7 @@ https://github.com/user-attachments/assets/4679fe7d-af39-4f9f-8356-282a04040f67
 
 
 
-> **CareVision** is an enterprise-grade Progressive Web Application (PWA) that empowers Community Health Workers (CHWs) and clinicians with AI-assisted diagnostic capabilities in resource-constrained environments. Powered by **NVIDIA NIM** (`meta/llama-3.2-11b-vision-instruct`), it delivers real-time multimodal analysis of medical documents, diagnostic test strips, medication scans, and wound assessments — with multilingual support, stateless JWT authentication, and a robust offline-first architecture.
+> **CareVision** is an enterprise-grade Progressive Web Application (PWA) that empowers Community Health Workers (CHWs) and clinicians with AI-assisted diagnostic capabilities in resource-constrained environments. Powered by **Google AI Studio** (`gemini-1.5-flash`), it delivers real-time multimodal analysis of medical documents, diagnostic test strips, medication scans, and wound assessments — with multilingual support, stateless JWT authentication, and a robust offline-first architecture.
 
 </div>
 
@@ -55,7 +55,7 @@ https://github.com/user-attachments/assets/4679fe7d-af39-4f9f-8356-282a04040f67
 | **Backend API (Swagger)** | `/docs` on the Railway service | Railway |
 | **Health Check** | `GET /health` | Railway |
 
-> **Try it now:** Register a free account at the live URL, then test all AI analysis features — TestStrip Reader, MedScan, Wound Assessment, Protocol Assistant, and DocReader — directly in your browser with real NVIDIA NIM inference.
+> **Try it now:** Register a free account at the live URL, then test all AI analysis features — TestStrip Reader, MedScan, Wound Assessment, Protocol Assistant, and DocReader — directly in your browser with real Gemini inference.
 
 ---
 
@@ -63,7 +63,7 @@ https://github.com/user-attachments/assets/4679fe7d-af39-4f9f-8356-282a04040f67
 
 Community health workers in last-mile clinics and remote geographies face complex clinical scenarios without immediate access to specialist medical advice. Existing digital health tools often rely on continuous, high-bandwidth internet — structurally absent in these regions.
 
-**CareVision** bridges this critical gap by delivering a mobile-first, offline-capable clinical decision support system. By integrating the advanced multimodal capabilities of NVIDIA NIM with an intelligent offline-sync queue, CareVision allows CHWs to interpret diagnostic tests, identify medications, assess wounds, and consult WHO protocols seamlessly — ensuring patient care is never gated by network instability.
+**CareVision** bridges this critical gap by delivering a mobile-first, offline-capable clinical decision support system. By integrating the advanced multimodal capabilities of Gemini with an intelligent offline-sync queue, CareVision allows CHWs to interpret diagnostic tests, identify medications, assess wounds, and consult WHO protocols seamlessly — ensuring patient care is never gated by network instability.
 
 ---
 
@@ -111,8 +111,8 @@ CareVision is a decoupled full-stack system with strict layer boundaries:
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       AI Inference Layer                            │
-│   NVIDIA NIM — meta/llama-3.2-11b-vision-instruct                  │
-│   Endpoint: integrate.api.nvidia.com/v1 (OpenAI SDK compatible)     │
+│   Google AI Studio — gemini-1.5-flash                               │
+│   Endpoint: generativelanguage.googleapis.com/v1beta/openai/        │
 │   Capabilities: image + text input → structured clinical JSON       │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ asyncpg (connection pool)
@@ -136,12 +136,12 @@ CareVision is fully deployed and production-live using a modern, zero-infrastruc
 | **Frontend** | [Vercel](https://vercel.com) | Auto-deploys from `main` branch; SPA routing via `vercel.json` |
 | **Backend** | [Railway](https://railway.app) | Dockerized FastAPI; auto-deploys from `main` branch |
 | **Database** | [Neon](https://neon.tech) | Serverless PostgreSQL with SSL connection pooling |
-| **AI Inference** | [NVIDIA NIM](https://build.nvidia.com) | `meta/llama-3.2-11b-vision-instruct` via OpenAI-compatible endpoint |
+| **AI Inference** | [Google AI Studio](https://aistudio.google.com) | `gemini-1.5-flash` via OpenAI-compatible endpoint |
 
 ### Key Deployment Notes
 
 - **Frontend env vars:** `VITE_API_BASE_URL` is baked at **build time** by Vercel. Any change requires a manual redeploy.
-- **Backend env vars:** `GEMMA_API_KEY` (or `NVIDIA_API_KEY`) and `SECRET_KEY` must be set in Railway Variables. The backend accepts **either** key name for NVIDIA NIM authentication.
+- **Backend env vars:** `GEMINI_API_KEY` (or `GEMMA_API_KEY`/`NVIDIA_API_KEY`) and `SECRET_KEY` must be set in Railway Variables. The backend accepts **any** of these key names for Google AI Studio authentication.
 - **CORS:** The backend is pre-configured to accept requests from all `*.vercel.app` preview URLs via regex — no manual updates needed for preview deployments.
 - **SPA routing:** `vercel.json` rewrites all non-asset paths to `index.html`, preventing 404 errors on direct navigation or page refresh.
 
@@ -158,7 +158,7 @@ carevision/
 │   │   ├── main.py                     # FastAPI app factory, CORS, routers
 │   │   ├── 📁 routes/                  # Route handlers: auth, analyze, protocols, log
 │   │   ├── 📁 schemas/                 # Pydantic request/response schemas
-│   │   ├── 📁 services/                # NVIDIA NIM client, image processor, storage
+│   │   ├── 📁 services/                # Gemini client, image processor, storage
 │   │   └── 📁 prompts/                 # Clinical system prompts per analysis type
 │   ├── 📁 tests/                       # Pytest verification suite
 │   ├── requirements.txt                # Pinned production dependencies
@@ -192,7 +192,7 @@ carevision/
 | Python | **3.12** | Required for asyncpg wheels |
 | Node.js | 18.x LTS | 20.x recommended |
 | npm | 9.x | Bundled with Node.js 18+ |
-| NVIDIA NIM API Key | — | [Get a free key →](https://build.nvidia.com/) |
+| Google AI Studio API Key | — | [Get a free key →](https://aistudio.google.com/) |
 | PostgreSQL | — | **Production:** Neon serverless; **Dev:** SQLite (auto-configured) |
 
 ---
@@ -213,7 +213,7 @@ pip install -r requirements.txt
 # 4. Configure secrets — NEVER commit the .env file
 cp .env.example .env
 # Edit .env and set:
-#   GEMMA_API_KEY  → your NVIDIA NIM API key (from build.nvidia.com)
+#   GEMINI_API_KEY  → your Google AI Studio API key (from aistudio.google.com)
 #   SECRET_KEY     → python -c "import secrets; print(secrets.token_hex(32))"
 #   DATABASE_URL   → postgresql+asyncpg://... (or leave SQLite default for dev)
 
@@ -255,10 +255,10 @@ All secrets are loaded from `carevision/backend/.env` — **this file is never c
 
 | Variable | Required | Description | How to Generate |
 |---|---|---|---|
-| `GEMMA_API_KEY` | ✅ Yes | NVIDIA NIM API key (also accepted as `NVIDIA_API_KEY`) | [build.nvidia.com](https://build.nvidia.com/) |
+| `GEMINI_API_KEY` | ✅ Yes | Google AI Studio API key (also accepted as `GEMMA_API_KEY` / `NVIDIA_API_KEY`) | [aistudio.google.com](https://aistudio.google.com/) |
 | `SECRET_KEY` | ✅ Yes | JWT signing secret (32+ chars minimum) | `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `DATABASE_URL` | ✅ Yes | Async PostgreSQL DSN (or SQLite for dev) | `postgresql+asyncpg://user:pass@host/dbname` |
-| `GEMMA_MODEL` | No | Override the NIM model slug | Default: `meta/llama-3.2-11b-vision-instruct` |
+| `GEMMA_MODEL` | No | Override the AI model slug | Default: `gemini-1.5-flash` |
 | `ALLOWED_ORIGINS` | No | JSON array of allowed CORS origins | `["https://yourdomain.com"]` |
 | `R2_ACCOUNT_ID` | No | Cloudflare R2 account ID for image storage | Cloudflare dashboard |
 | `R2_ACCESS_KEY` | No | R2 access key ID | Cloudflare dashboard |
@@ -330,7 +330,7 @@ CareVision is designed for environments handling sensitive clinical data. The fo
 ### Secrets Management
 - All credentials managed via environment variables — **zero secrets in source code**
 - `.env` files explicitly excluded by `.gitignore`
-- The backend accepts both `GEMMA_API_KEY` and `NVIDIA_API_KEY` and resolves them at startup with an explicit log entry confirming key loading
+- The backend accepts `GEMINI_API_KEY`, `GEMMA_API_KEY`, or `NVIDIA_API_KEY` and resolves them at startup with an explicit log entry confirming key loading
 
 ### Transport Security
 - TLS enforced in production (Neon PostgreSQL requires `sslmode=require`)
@@ -344,7 +344,7 @@ CareVision is designed for environments handling sensitive clinical data. The fo
 CareVision supports 15+ languages via `i18next 23` + `react-i18next 14`:
 
 - Translation files: `frontend/src/i18n/locales/<locale>/` (JSON format)
-- Active locale is persisted in **Zustand** and synchronized to NVIDIA NIM prompts — AI responses are generated in the user's selected language
+- Active locale is persisted in **Zustand** and synchronized to Gemini prompts — AI responses are generated in the user's selected language
 - Language detection follows browser preference on first load, with manual override in Settings
 
 **Supported locales:** English, French, Spanish, Arabic, Hindi, Swahili, Amharic, Bengali, Indonesian, Vietnamese, Burmese, Khmer, Portuguese, Tagalog, Hausa
@@ -405,6 +405,6 @@ This project is licensed under the **Apache 2.0 License**. See [LICENSE](./LICEN
 
 <div align="center">
 
-🌐 **[Live Demo](https://carevision-chw.vercel.app/landing)** · Built for frontline healthcare workers · Powered by NVIDIA NIM · Made with ❤️
+🌐 **[Live Demo](https://carevision-chw.vercel.app/landing)** · Built for frontline healthcare workers · Powered by Google AI Studio · Made with ❤️
 
 </div>
