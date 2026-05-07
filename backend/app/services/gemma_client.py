@@ -89,6 +89,16 @@ class GemmaClient:
 
             except Exception as exc:
                 last_error = exc
+                import openai
+                if isinstance(exc, openai.RateLimitError):
+                    logger.error("Rate limit or quota exhausted: %s", exc)
+                    # For hackathon: fail fast with friendly message instead of retrying forever
+                    raise RuntimeError(
+                        "API_QUOTA_EXHAUSTED: We are experiencing high traffic and have reached our "
+                        "Gemini API limits for the hackathon demonstration. Please check out our "
+                        "demo video in the README to see this feature in action!"
+                    ) from exc
+
                 logger.warning(
                     "Google API attempt %d/%d failed: %s",
                     attempt + 1,
@@ -143,12 +153,22 @@ class GemmaClient:
                 {"role": "user", "content": text_prompt}
             ]
 
-        response = await self._client.chat.completions.create(
-            model=self._model_name,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=512,
-        )
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._model_name,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=512,
+            )
+        except Exception as exc:
+            import openai
+            if isinstance(exc, openai.RateLimitError):
+                raise RuntimeError(
+                    "API_QUOTA_EXHAUSTED: We are experiencing high traffic and have reached our "
+                    "Gemini API limits for the hackathon demonstration. Please check out our "
+                    "demo video in the README to see this feature in action!"
+                ) from exc
+            raise
 
         return response.choices[0].message.content or ""
 

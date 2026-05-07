@@ -21,7 +21,7 @@ https://github.com/user-attachments/assets/4679fe7d-af39-4f9f-8356-282a04040f67
 
 
 
-> **CareVision** is an enterprise-grade Progressive Web Application (PWA) that empowers Community Health Workers (CHWs) and clinicians with AI-assisted diagnostic capabilities in resource-constrained environments. Powered by **Google AI Studio** (`gemini-1.5-flash`), it delivers real-time multimodal analysis of medical documents, diagnostic test strips, medication scans, and wound assessments — with multilingual support, stateless JWT authentication, and a robust offline-first architecture.
+> **CareVision** is an enterprise-grade Progressive Web Application (PWA) that empowers Community Health Workers (CHWs) and clinicians with AI-assisted diagnostic capabilities in resource-constrained environments. Powered by **Google AI Studio** (`gemini-2.0-flash`), it delivers real-time multimodal analysis of medical documents, diagnostic test strips, medication scans, and wound assessments — with multilingual support, stateless JWT authentication, and a robust offline-first architecture.
 
 </div>
 
@@ -56,6 +56,16 @@ https://github.com/user-attachments/assets/4679fe7d-af39-4f9f-8356-282a04040f67
 | **Health Check** | `GET /health` | Railway |
 
 > **Try it now:** Register a free account at the live URL, then test all AI analysis features — TestStrip Reader, MedScan, Wound Assessment, Protocol Assistant, and DocReader — directly in your browser with real Gemini inference.
+
+---
+
+### ⚠️ Note for Hackathon Judges: API Rate Limits
+This project uses the free tier of the Google Gemini API via Google AI Studio. 
+If the live Railway deployment returns an "API_QUOTA_EXHAUSTED" error during your evaluation, you can easily test the application locally using your own API key:
+1. Clone the repository.
+2. Add your `GEMINI_API_KEY` to the `carevision/backend/.env` file.
+3. Run the local development steps outlined in the [Quick Start](#-quick-start) section.
+Alternatively, please refer to our demo video above to see the full functionality working perfectly!
 
 ---
 
@@ -111,7 +121,7 @@ CareVision is a decoupled full-stack system with strict layer boundaries:
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       AI Inference Layer                            │
-│   Google AI Studio — gemini-1.5-flash                               │
+│   Google AI Studio — gemini-2.0-flash                               │
 │   Endpoint: generativelanguage.googleapis.com/v1beta/openai/        │
 │   Capabilities: image + text input → structured clinical JSON       │
 └──────────────────────────────┬──────────────────────────────────────┘
@@ -136,7 +146,7 @@ CareVision is fully deployed and production-live using a modern, zero-infrastruc
 | **Frontend** | [Vercel](https://vercel.com) | Auto-deploys from `main` branch; SPA routing via `vercel.json` |
 | **Backend** | [Railway](https://railway.app) | Dockerized FastAPI; auto-deploys from `main` branch |
 | **Database** | [Neon](https://neon.tech) | Serverless PostgreSQL with SSL connection pooling |
-| **AI Inference** | [Google AI Studio](https://aistudio.google.com) | `gemini-1.5-flash` via OpenAI-compatible endpoint |
+| **AI Inference** | [Google AI Studio](https://aistudio.google.com) | `gemini-2.0-flash` via OpenAI-compatible endpoint |
 
 ### Key Deployment Notes
 

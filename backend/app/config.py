@@ -19,14 +19,17 @@ class Settings(BaseSettings):
     """
 
     # ── AI Model ─────────────────────────────────────────────────────────────
-    # WHY two fields: Railway dashboard uses NVIDIA_API_KEY, but older deploys
-    # used GEMMA_API_KEY. We accept BOTH and unify in the validator below.
-    # The NVIDIA NIM endpoint (integrate.api.nvidia.com) accepts the same key
-    # regardless of which env var name you use to store it.
+    # WHY three fields: Railway dashboard may use NVIDIA_API_KEY, GEMMA_API_KEY,
+    # or GEMINI_API_KEY. We accept ALL and unify in model_post_init() below.
+    # Resolution order: GEMINI_API_KEY → GEMMA_API_KEY → NVIDIA_API_KEY.
     gemma_api_key: str = ""
     nvidia_api_key: str = ""   # Alias accepted from NVIDIA_API_KEY in Railway
-    gemini_api_key: str = ""   # Added for Google AI Studio
-    gemma_model: str = "gemini-1.5-flash"
+    gemini_api_key: str = ""   # Primary field for Google AI Studio
+    # WHY gemini-2.0-flash: gemini-2.0-flash is the current production-stable
+    # model with vision support. Older versions were removed from the v1/v1beta
+    # OpenAI-compatible endpoint.
+    # Override with GEMMA_MODEL env var in Railway if needed.
+    gemma_model: str = "gemini-2.0-flash"
     gemma_max_retries: int = 2
     gemma_timeout_seconds: int = 30
 
