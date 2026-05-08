@@ -89,7 +89,10 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
         )
     except RuntimeError as exc:
         logger.error("Gemma API failed for type=%s: %s", request.type, exc)
-        raise HTTPException(status_code=503, detail=f"AI service error: {exc}") from exc
+        status_code = 503
+        if "API_KEY_INVALID" in str(exc) or "API_BAD_REQUEST" in str(exc):
+            status_code = 400
+        raise HTTPException(status_code=status_code, detail=f"AI service error: {exc}") from exc
 
     elapsed_ms = float(raw_result.pop("_elapsed_ms", 0.0))
 

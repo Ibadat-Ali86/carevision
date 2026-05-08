@@ -39,10 +39,18 @@ async def query_protocol(request: ProtocolRequest) -> ProtocolResponse:
             image_b64=request.image_b64,
             context=request.context,
         )
+    except RuntimeError as exc:
+        status_code = 503
+        if "API_KEY_INVALID" in str(exc) or "API_BAD_REQUEST" in str(exc):
+            status_code = 400
+        raise HTTPException(
+            status_code=status_code,
+            detail=f"Protocol assistant unavailable: {exc}",
+        ) from exc
     except Exception as exc:
         raise HTTPException(
-            status_code=503,
-            detail=f"Protocol assistant unavailable: {exc}",
+            status_code=500,
+            detail=f"Protocol assistant internal error: {exc}",
         ) from exc
 
     # Extract source_note from response if model included it; otherwise use default.

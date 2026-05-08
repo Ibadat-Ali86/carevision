@@ -10,20 +10,35 @@ logger = logging.getLogger(__name__)
 
 
 class GemmaClient:
-    """Sole integration point with the Google AI Studio (OpenAI-compatible) API.
+    """Sole integration point with the Google AI Studio or NVIDIA NIM API.
 
     Handles image+prompt composition, structured JSON output extraction,
     retry logic, and latency logging.
     """
 
     def __init__(self) -> None:
+        api_key = settings.gemma_api_key.strip()
+        self._is_nvidia = api_key.startswith("nvapi-")
+        
+        base_url = (
+            "https://integrate.api.nvidia.com/v1" 
+            if self._is_nvidia 
+            else "https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+
         self._client = AsyncOpenAI(
-            api_key=settings.gemma_api_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=api_key,
+            base_url=base_url,
             timeout=float(settings.gemma_timeout_seconds),
             max_retries=0,  # We handle retries manually in analyze() with logging
         )
-        self._model_name = settings.gemma_model
+        
+        if self._is_nvidia:
+            # NVIDIA NIM vision model fallback
+            self._model_name = "meta/llama-3.2-90b-vision-instruct"
+        else:
+            self._model_name = settings.gemma_model
+            
         self._max_retries = settings.gemma_max_retries
 
     async def analyze(
@@ -35,7 +50,7 @@ class GemmaClient:
         temperature: float = 0.1,
         max_output_tokens: int = 1024,
     ) -> dict[str, Any]:
-        """Send an image + prompt to Google AI Studio and return a structured dict."""
+        """Send an image + prompt to the AI provider and return a structured dict."""
         
         full_prompt = (
             f"{system_prompt}\n\n"
@@ -90,24 +105,36 @@ class GemmaClient:
             except Exception as exc:
                 last_error = exc
                 import openai
+                
+                if isinstance(exc, openai.AuthenticationError):
+                    logger.error("Authentication failed: %s", exc)
+                    raise RuntimeError(
+                        "API_KEY_INVALID: The provided API key is invalid. Please check your environment variables."
+                    ) from exc
+                
                 if isinstance(exc, openai.RateLimitError):
                     logger.error("Rate limit or quota exhausted: %s", exc)
-                    # For hackathon: fail fast with friendly message instead of retrying forever
                     raise RuntimeError(
                         "API_QUOTA_EXHAUSTED: We are experiencing high traffic and have reached our "
-                        "Gemini API limits for the hackathon demonstration. Please check out our "
-                        "demo video in the README to see this feature in action!"
+                        "AI API limits for the hackathon demonstration. Please try again shortly or check out our demo video!"
+                    ) from exc
+                    
+                if isinstance(exc, openai.BadRequestError):
+                    logger.error("Bad Request: %s", exc)
+                    # Don't retry bad requests (e.g. invalid base64, unsupported model)
+                    raise RuntimeError(
+                        f"API_BAD_REQUEST: The AI provider rejected the request. Details: {exc}"
                     ) from exc
 
                 logger.warning(
-                    "Google API attempt %d/%d failed: %s",
+                    "AI API attempt %d/%d failed: %s",
                     attempt + 1,
                     self._max_retries + 1,
                     exc,
                 )
 
         raise RuntimeError(
-            f"Google API failed after {self._max_retries + 1} attempts. "
+            f"AI API failed after {self._max_retries + 1} attempts. "
             f"Last error: {last_error}"
         )
 
@@ -162,11 +189,18 @@ class GemmaClient:
             )
         except Exception as exc:
             import openai
+            if isinstance(exc, openai.AuthenticationError):
+                raise RuntimeError(
+                    "API_KEY_INVALID: The provided API key is invalid. Please check your environment variables."
+                ) from exc
             if isinstance(exc, openai.RateLimitError):
                 raise RuntimeError(
                     "API_QUOTA_EXHAUSTED: We are experiencing high traffic and have reached our "
-                    "Gemini API limits for the hackathon demonstration. Please check out our "
-                    "demo video in the README to see this feature in action!"
+                    "AI API limits for the hackathon demonstration. Please try again shortly or check out our demo video!"
+                ) from exc
+            if isinstance(exc, openai.BadRequestError):
+                raise RuntimeError(
+                    f"API_BAD_REQUEST: The AI provider rejected the request. Details: {exc}"
                 ) from exc
             raise
 
@@ -195,7 +229,7 @@ class GemmaClient:
             except json.JSONDecodeError:
                 pass
                 
-        raise ValueError(f"No parseable JSON in Google API response: {text[:100]}...")
+        raise ValueError(f"No parseable JSON in API response: {text[:100]}...")
 
 
 # Module-level singleton — never instantiate GemmaClient() inside a route handler.
