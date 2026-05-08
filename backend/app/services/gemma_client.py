@@ -133,9 +133,14 @@ class GemmaClient:
                     exc,
                 )
 
+        error_msg = str(last_error)
+        import openai
+        if isinstance(last_error, (openai.APITimeoutError, openai.APIConnectionError)):
+            error_msg = "API_TIMEOUT: The AI provider is currently overloaded and timed out. Please try again in a few moments."
+
         raise RuntimeError(
             f"AI API failed after {self._max_retries + 1} attempts. "
-            f"Last error: {last_error}"
+            f"Details: {error_msg}"
         )
 
     async def query_protocol(
@@ -201,6 +206,10 @@ class GemmaClient:
             if isinstance(exc, openai.BadRequestError):
                 raise RuntimeError(
                     f"API_BAD_REQUEST: The AI provider rejected the request. Details: {exc}"
+                ) from exc
+            if isinstance(exc, (openai.APITimeoutError, openai.APIConnectionError)):
+                raise RuntimeError(
+                    "API_TIMEOUT: The AI provider is currently overloaded and timed out. Please try again in a few moments."
                 ) from exc
             raise
 

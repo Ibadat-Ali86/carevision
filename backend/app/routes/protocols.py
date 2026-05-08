@@ -43,6 +43,9 @@ async def query_protocol(request: ProtocolRequest) -> ProtocolResponse:
         status_code = 503
         if "API_KEY_INVALID" in str(exc) or "API_BAD_REQUEST" in str(exc):
             status_code = 400
+        elif "API_TIMEOUT" in str(exc):
+            status_code = 504
+            
         raise HTTPException(
             status_code=status_code,
             detail=f"Protocol assistant unavailable: {exc}",
