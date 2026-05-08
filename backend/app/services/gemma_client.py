@@ -106,10 +106,10 @@ class GemmaClient:
                 last_error = exc
                 import openai
                 
-                if isinstance(exc, openai.AuthenticationError):
-                    logger.error("Authentication failed: %s", exc)
+                if isinstance(exc, (openai.AuthenticationError, openai.PermissionDeniedError)):
+                    logger.error("Authentication/Permission failed: %s", exc)
                     raise RuntimeError(
-                        "API_KEY_INVALID: The provided API key is invalid. Please check your environment variables."
+                        "API_KEY_INVALID: The provided API key is invalid or unauthorized. Please check your environment variables."
                     ) from exc
                 
                 if isinstance(exc, openai.RateLimitError):
@@ -194,9 +194,9 @@ class GemmaClient:
             )
         except Exception as exc:
             import openai
-            if isinstance(exc, openai.AuthenticationError):
+            if isinstance(exc, (openai.AuthenticationError, openai.PermissionDeniedError)):
                 raise RuntimeError(
-                    "API_KEY_INVALID: The provided API key is invalid. Please check your environment variables."
+                    "API_KEY_INVALID: The provided API key is invalid or unauthorized. Please check your environment variables."
                 ) from exc
             if isinstance(exc, openai.RateLimitError):
                 raise RuntimeError(
