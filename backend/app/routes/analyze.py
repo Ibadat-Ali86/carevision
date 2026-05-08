@@ -88,12 +88,16 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
             language=request.language,
         )
     except RuntimeError as exc:
-        logger.error("Gemma API failed for type=%s: %s", request.type, exc)
-        status_code = 503
-        if "API_KEY_INVALID" in str(exc) or "API_BAD_REQUEST" in str(exc):
+        logger.error("AI analyze failed for type=%s: %s", request.type, exc)
+        exc_str = str(exc)
+        if "API_KEY_INVALID" in exc_str or "API_BAD_REQUEST" in exc_str:
             status_code = 400
-        elif "API_TIMEOUT" in str(exc):
+        elif "API_TIMEOUT" in exc_str:
             status_code = 504
+        elif "API_QUOTA_EXHAUSTED" in exc_str:
+            status_code = 429
+        else:
+            status_code = 503
         raise HTTPException(status_code=status_code, detail=f"AI service error: {exc}") from exc
 
     elapsed_ms = float(raw_result.pop("_elapsed_ms", 0.0))
@@ -118,7 +122,7 @@ async def _run_analysis(request: AnalyzeRequest, analysis_type: str) -> AnalyzeR
         type=request.type,
         result=result,
         processing_time_ms=elapsed_ms,
-        model_used=gemma_client._model_name,
+        model_used=gemma_client._vision_model,
         image_stored=image_stored,
         image_url=image_url,
     )

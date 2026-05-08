@@ -40,12 +40,15 @@ async def query_protocol(request: ProtocolRequest) -> ProtocolResponse:
             context=request.context,
         )
     except RuntimeError as exc:
-        status_code = 503
-        if "API_KEY_INVALID" in str(exc) or "API_BAD_REQUEST" in str(exc):
+        exc_str = str(exc)
+        if "API_KEY_INVALID" in exc_str or "API_BAD_REQUEST" in exc_str:
             status_code = 400
-        elif "API_TIMEOUT" in str(exc):
+        elif "API_TIMEOUT" in exc_str:
             status_code = 504
-            
+        elif "API_QUOTA_EXHAUSTED" in exc_str:
+            status_code = 429
+        else:
+            status_code = 503
         raise HTTPException(
             status_code=status_code,
             detail=f"Protocol assistant unavailable: {exc}",
